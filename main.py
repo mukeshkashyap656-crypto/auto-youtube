@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import random
+import time
 import requests
 import edge_tts
 from google import genai
@@ -19,29 +20,37 @@ from moviepy import (
     concatenate_videoclips,
 )
 
-# 1. AI SE SCRIPT AUR TITLE LIKHWANA (Gemini 3.8 Flash)
+# 1. AI SE FREE FIRE PRO TIPS SCRIPT LIKHWANA (Auto-Retry ke saath)
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
-    themes = ["Space & Universe", "Human Body", "Ocean Mysteries", "Science Facts", "World History", "Animal Kingdom"]
+    themes = [
+        "Free Fire One-Tap Headshot Sensitivity & Fire Button Trick",
+        "Free Fire Fast Crouch Gloo Wall Trick",
+        "Free Fire Clash Squad (CS) Rank Push Secret Strategy",
+        "Free Fire Best Character Skill Combination for Rusher",
+        "Free Fire Double Sniper AWM Quick Switch Trick",
+        "Free Fire BR Rank Survival & Final Zone Pro Tips",
+    ]
     chosen_theme = random.choice(themes)
 
     prompt = f"""
-    Create a short 25-second viral YouTube Shorts fact script on the theme: {chosen_theme}.
+    Create a short 25-second viral YouTube Shorts gaming script on: {chosen_theme}.
+    Write in exciting Indian Free Fire gaming YouTuber style.
     Return ONLY valid JSON with these exact keys:
-    - "title": Catchy Hinglish/English title under 60 chars with #shorts #facts
-    - "description": 2 lines description with hashtags
-    - "tags": list of 5 short tags
-    - "search_query": 2 simple English words for stock background video (example: "galaxy stars", "ocean waves")
-    - "voice_text": 3 short, exciting sentences in natural Hindi (Devanagari script) for voiceover
-    - "screen_text": Short punchy summary in Hinglish/English (max 25 words) to display on screen
+    - "title": Catchy Hinglish/English title under 60 chars with #shorts #freefire #freefiretips
+    - "description": 2 lines gaming description with hashtags #freefire #freefireindia #garenafreefire #shorts
+    - "tags": list of 5 short tags like ["freefire", "freefiretips", "headshot", "shorts", "gaming"]
+    - "search_query": 2 simple English words for background video (choose from: "gaming neon", "esports gamer", "abstract neon", "cyberpunk dark")
+    - "voice_text": 3 short, energetic sentences in natural Hindi (Devanagari script) explaining the Free Fire pro tip
+    - "screen_text": Short punchy Free Fire tip summary in Hinglish/English (max 25 words) to display on screen
     """
 
     last_err = None
-    for model_name in ("gemini-3.8-flash", "gemini-2.5-flash"):
+    for attempt in range(4):
         try:
             response = client.models.generate_content(
-                model=model_name,
+                model="gemini-3.8-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
@@ -51,7 +60,8 @@ def generate_script():
             return json.loads(text)
         except Exception as e:
             last_err = e
-            print(f"Model {model_name} info: {e}")
+            print(f"Attempt {attempt + 1} info: {e}")
+            time.sleep(12)
     raise last_err
 
 # 2. FREE AI VOICEOVER BANANA (Edge-TTS Hindi Male Voice)
@@ -59,7 +69,7 @@ async def make_voice(text, filename="voice.mp3"):
     communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural")
     await communicate.save(filename)
 
-# 3. PIXABAY SE FREE STOCK VIDEO DOWNLOAD KARNA
+# 3. PIXABAY SE GAMING/NEON BACKGROUND VIDEO DOWNLOAD KARNA
 def download_bg_video(query, filename="bg.mp4"):
     api_key = os.environ["PIXABAY_API_KEY"].strip()
     res = requests.get(
@@ -72,7 +82,7 @@ def download_bg_video(query, filename="bg.mp4"):
     if not hits:
         res = requests.get(
             "https://pixabay.com/api/videos/",
-            params={"key": api_key, "q": "nature", "per_page": 5},
+            params={"key": api_key, "q": "gaming", "per_page": 5},
             timeout=30,
         ).json()
         hits = res.get("hits", [])
@@ -106,7 +116,7 @@ def build_video(screen_text, has_bg, output_file="output.mp4"):
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(duration)
 
-    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.4).with_duration(duration)
+    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.45).with_duration(duration)
     txt = TextClip(
         font="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         text=screen_text,
@@ -142,8 +152,8 @@ def upload_video(video_file, data):
             "snippet": {
                 "title": data["title"][:95],
                 "description": data["description"],
-                "tags": data.get("tags", ["shorts", "facts"]),
-                "categoryId": "27",
+                "tags": data.get("tags", ["freefire", "shorts", "gaming"]),
+                "categoryId": "20",  # 20 = Gaming category
             },
             "status": {
                 "privacyStatus": "private",  # Pehla test dekhne ke baad ise "public" kar dein
