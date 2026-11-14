@@ -46,7 +46,7 @@ def generate_script():
     - "description": 2 lines gaming description with #freefireindia #freefiremax #ffws2026 #ob56update #freefireshorts #shorts
     - "tags": list of 6 short tags like ["freefireindia", "freefiremax", "ffws2026", "freefireshorts", "gaming", "shorts"]
     - "search_query": 2 English words for background video (pick from: "gaming neon", "esports gamer", "cyberpunk dark", "abstract laser")
-    - "voice_text": 3 short, punchy sentences in natural spoken Hindi (Devanagari script, 35-45 words total). Use commas and full stops for natural human breathing pauses so it doesn't sound robotic.
+    - "voice_text": 3 short, punchy sentences in natural spoken Hindi (Devanagari script, 35-45 words total). Use commas and full stops for natural human breathing pauses.
     """
 
     last_err = None
@@ -67,15 +67,24 @@ def generate_script():
             time.sleep(12)
     raise last_err
 
-# 2. NATURAL DEEP MALE GAMING VOICEOVER
+# 2. RELIABLE MALE GAMING VOICEOVER (Auto-Retry ke saath)
 async def make_voice(text, filename="voice.mp3"):
-    communicate = edge_tts.Communicate(
-        text, 
-        "hi-IN-MadhurNeural", 
-        rate="+0%", 
-        pitch="-4Hz"
-    )
-    await communicate.save(filename)
+    clean_text = text.replace('"', '').replace("'", "").strip()
+    for attempt in range(4):
+        try:
+            communicate = edge_tts.Communicate(
+                clean_text, 
+                "hi-IN-MadhurNeural", 
+                rate="+2%"
+            )
+            await communicate.save(filename)
+            if os.path.exists(filename) and os.path.getsize(filename) > 1000:
+                print("Voice generated successfully!")
+                return
+        except Exception as e:
+            print(f"Voice attempt {attempt + 1} failed: {e}")
+            await asyncio.sleep(5)
+    raise Exception("Failed to generate voice after 4 attempts.")
 
 # 3. BACKGROUND VIDEO (Apna clips folder ya Pixabay)
 def get_bg_video(query, filename="bg.mp4"):
@@ -174,4 +183,4 @@ if __name__ == "__main__":
     bg_path = get_bg_video(data["search_query"])
     build_video(bg_path)
     upload_video("output.mp4", data)
-    
+            
