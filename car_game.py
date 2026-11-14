@@ -72,7 +72,7 @@ async def make_voice(text, filename="car_voice.mp3"):
     communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+10%")
     await communicate.save(filename)
 
-# 3. BACKGROUND CAR VIDEO (Apna car_clips ya Pixabay Sports Cars Video)
+# 3. BACKGROUND CAR VIDEO
 def get_bg_video(query, filename="car_bg.mp4"):
     local_clips = glob.glob("car_clips/*.mp4")
     if local_clips:
@@ -107,7 +107,7 @@ def get_bg_video(query, filename="car_bg.mp4"):
                 return filename
     return None
 
-# 4. CLEAN VIDEO EDITING (9:16 Shorts Format)
+# 4. CLEAN VIDEO EDITING
 def build_video(screen_text, bg_path, output_file="car_output.mp4"):
     audio = AudioFileClip("car_voice.mp3")
     duration = audio.duration
@@ -142,7 +142,7 @@ def build_video(screen_text, bg_path, output_file="car_output.mp4"):
     audio.close()
     final.close()
 
-# 5. CAR GAME CHANNEL PAR AUTO UPLOAD KARNA
+# 5. CAR GAME CHANNEL PAR PUBLIC AUTO UPLOAD KARNA
 def upload_video(video_file, data):
     creds = Credentials(
         token=None,
@@ -165,7 +165,7 @@ def upload_video(video_file, data):
                 "categoryId": "20",
             },
             "status": {
-                "privacyStatus": "private",  # Pehla video dekhne ke baad ise "public" kar dein
+                "privacyStatus": "public",
                 "selfDeclaredMadeForKids": False,
             },
         },
