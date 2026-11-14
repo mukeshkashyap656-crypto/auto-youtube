@@ -19,20 +19,17 @@ from moviepy import (
     concatenate_videoclips,
 )
 
-# 1. VIRAL NOVEMBER 2026 FREE FIRE SHORTS SCRIPT
+# 1. VIRAL FREE FIRE SHORTS SCRIPT
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
     themes = [
-        "Free Fire India vs Free Fire MAX: Which is Better for Low End Phones?",
-        "FFWS Global Finals 2026 Shocking Pro Moments & Free Rewards",
-        "Upcoming OB56 Update & Advance Server Biggest Secret Changes",
-        "How to Claim Free Exclusive Gloo Wall in Ranked Season Goals Fast",
-        "Storm Arena & Upcoming Cosmic Fist Event Honest Review",
-        "Free Fire India New Parental Control & Playtime Limit Rules Explained",
         "Secret Red Number Headshot Sensitivity & Fire Button Size Trick",
         "99% Players Make This Big Mistake in Clash Squad Rank",
         "MP40 vs M1887 or Best Character Skill Debate (Comment Battle)",
+        "Old Free Fire Rare Facts & Nostalgia That New Players Don't Know",
+        "Fast Crouch Gloo Wall & 1v4 Clutch Pro Secret",
+        "BR Rank Secret Survival & Hidden Pro Strategy",
     ]
     chosen_theme = random.choice(themes)
 
@@ -42,11 +39,11 @@ def generate_script():
     - Start immediately with a shocking 1-line hook (NO "Hello dosto" or intro).
     - End with a short question asking viewers to comment their choice/opinion.
     - Return ONLY valid JSON with these exact keys:
-    - "title": Catchy Hinglish title under 60 chars with #shorts #freefireindia
-    - "description": 2 lines gaming description with #freefireindia #freefiremax #ffws2026 #ob56update #freefireshorts #shorts
-    - "tags": list of 6 short tags like ["freefireindia", "freefiremax", "ffws2026", "freefireshorts", "gaming", "shorts"]
+    - "title": Catchy Hinglish title under 60 chars with #shorts #freefire
+    - "description": 2 lines gaming description with #freefire #freefireindia #freefireshorts #shorts
+    - "tags": list of 5 short tags like ["freefire", "freefireshorts", "headshot", "gaming", "shorts"]
     - "search_query": 2 English words for background video (pick from: "gaming neon", "esports gamer", "cyberpunk dark", "abstract laser")
-    - "voice_text": 3 short, punchy sentences in natural spoken Hindi (Devanagari script, 35-45 words total). Use commas and full stops for natural human breathing pauses.
+    - "voice_text": 3 short, high-energy sentences in natural Hindi (Devanagari script, 35-45 words total)
     """
 
     last_err = None
@@ -67,66 +64,47 @@ def generate_script():
             time.sleep(12)
     raise last_err
 
-# 2. RELIABLE MALE GAMING VOICEOVER (Auto-Retry ke saath)
+# 2. TEZ GAMING STYLE HINDI VOICEOVER
 async def make_voice(text, filename="voice.mp3"):
-    clean_text = text.replace('"', '').replace("'", "").strip()
-    for attempt in range(4):
-        try:
-            communicate = edge_tts.Communicate(
-                clean_text, 
-                "hi-IN-MadhurNeural", 
-                rate="+2%"
-            )
-            await communicate.save(filename)
-            if os.path.exists(filename) and os.path.getsize(filename) > 1000:
-                print("Voice generated successfully!")
-                return
-        except Exception as e:
-            print(f"Voice attempt {attempt + 1} failed: {e}")
-            await asyncio.sleep(5)
-    raise Exception("Failed to generate voice after 4 attempts.")
+    communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+10%")
+    await communicate.save(filename)
 
-# 3. BACKGROUND VIDEO (Apna clips folder ya Safe Pixabay)
+# 3. BACKGROUND VIDEO (Apna clips folder ya Pixabay)
 def get_bg_video(query, filename="bg.mp4"):
-    local_clips = []
-    for ext in ("*.mp4", "*.MP4", "*.mkv", "*.mov", "*.webm"):
-        local_clips.extend(glob.glob(f"clips/{ext}"))
-        
+    local_clips = glob.glob("clips/*.mp4")
     if local_clips:
         chosen = random.choice(local_clips)
         print("Using own gameplay clip:", chosen)
         return chosen
 
-    print("No local clips found in 'clips/' folder, trying Pixabay...")
-    try:
-        api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
-        if not api_key:
-            return None
+    api_key = os.environ["PIXABAY_API_KEY"].strip()
+    res = requests.get(
+        "https://pixabay.com",
+        params={"key": api_key, "q": query, "per_page": 5},
+        timeout=30,
+    ).json()
+    hits = res.get("hits", [])
 
+    if not hits:
         res = requests.get(
             "https://pixabay.com",
-            params={"key": api_key, "q": query, "per_page": 5},
+            params={"key": api_key, "q": "gaming", "per_page": 5},
             timeout=30,
-        )
-        if res.status_code != 200 or not res.text.strip():
-            return None
+        ).json()
+        hits = res.get("hits", [])
 
-        hits = res.json().get("hits", [])
-        if hits:
-            videos = random.choice(hits).get("videos", {})
-            for quality in ("medium", "small", "large", "tiny"):
-                if quality in videos and videos[quality].get("url"):
-                    mp4_link = videos[quality]["url"]
-                    video_data = requests.get(mp4_link, timeout=60).content
-                    with open(filename, "wb") as f:
-                        f.write(video_data)
-                    return filename
-    except Exception as e:
-        print(f"Pixabay error safely handled: {e}")
-        
+    if hits:
+        videos = random.choice(hits).get("videos", {})
+        for quality in ("medium", "small", "large", "tiny"):
+            if quality in videos and videos[quality].get("url"):
+                mp4_link = videos[quality]["url"]
+                video_data = requests.get(mp4_link, timeout=60).content
+                with open(filename, "wb") as f:
+                    f.write(video_data)
+                return filename
     return None
 
-# 4. CLEAN VIDEO EDITING (Bina kisi screen text ke)
+# 4. CLEAN VIDEO EDITING
 def build_video(bg_path, output_file="output.mp4"):
     audio = AudioFileClip("voice.mp3")
     duration = audio.duration
@@ -168,7 +146,7 @@ def upload_video(video_file, data):
             "snippet": {
                 "title": data["title"][:95],
                 "description": data["description"],
-                "tags": data.get("tags", ["freefireindia", "shorts", "gaming"]),
+                "tags": data.get("tags", ["freefire", "shorts", "gaming"]),
                 "categoryId": "20",
             },
             "status": {
@@ -188,4 +166,4 @@ if __name__ == "__main__":
     bg_path = get_bg_video(data["search_query"])
     build_video(bg_path)
     upload_video("output.mp4", data)
-                    
+    
