@@ -86,39 +86,59 @@ async def make_voice(text, filename="voice.mp3"):
             await asyncio.sleep(5)
     raise Exception("Failed to generate voice after 4 attempts.")
 
-# 3. BACKGROUND VIDEO (Apna clips folder ya Pixabay)
+# 3. BACKGROUND VIDEO (Apna clips folder ya Safe Pixabay)
 def get_bg_video(query, filename="bg.mp4"):
-    local_clips = glob.glob("clips/*.mp4")
+    # Apne clips folder mein kisi bhi format ki video dhundhega
+    local_clips = []
+    for ext in ("*.mp4", "*.MP4", "*.mkv", "*.mov", "*.webm"):
+        local_clips.extend(glob.glob(f"clips/{ext}"))
+        
     if local_clips:
         chosen = random.choice(local_clips)
         print("Using own gameplay clip:", chosen)
         return chosen
 
-    api_key = os.environ["PIXABAY_API_KEY"].strip()
-    res = requests.get(
-        "https://pixabay.com",
-        params={"key": api_key, "q": query, "per_page": 5},
-        timeout=30,
-    ).json()
-    hits = res.get("hits", [])
+    print("No local clips found in 'clips/' folder, trying Pixabay...")
+    try:
+        api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
+        if not api_key:
+            print("PIXABAY_API_KEY missing!")
+            return None
 
-    if not hits:
         res = requests.get(
             "https://pixabay.com",
-            params={"key": api_key, "q": "gaming", "per_page": 5},
+            params={"key": api_key, "q": query, "per_page": 5},
             timeout=30,
-        ).json()
-        hits = res.get("hits", [])
+        )
+        if res.status_code != 200 or not res.text.strip():
+            print("Pixabay returned empty response, trying fallback...")
+            return None
 
-    if hits:
-        videos = random.choice(hits).get("videos", {})
-        for quality in ("medium", "small", "large", "tiny"):
-            if quality in videos and videos[quality].get("url"):
-                mp4_link = videos[quality]["url"]
-                video_data = requests.get(mp4_link, timeout=60).content
-                with open(filename, "wb") as f:
-                    f.write(video_data)
-                return filename
+        data = res.json()
+        hits = data.get("hits", [])
+
+        if not hits:
+            res = requests.get(
+                "https://pixabay.com",
+                params={"key": api_key, "q": "gaming", "per_page": 5},
+                timeout=30,
+            )
+            if res.status_code == 200 and res.text.strip():
+                hits = res.json().get("hits", [])
+
+        if hits:
+            videos = random.choice(hits).get("videos", {})
+            for quality in ("medium", "small", "large", "tiny"):
+                if quality in videos and videos[quality].get("url"):
+                    mp4_link = videos[quality]["url"]
+                    video_data = requests.get(mp4_link, timeout=60).content
+                    with open(filename, "wb") as f:
+                        f.write(video_data)
+                    print("Downloaded Pixabay video successfully!")
+                    return filename
+    except Exception as e:
+        print(f"Pixabay error safely handled: {e}")
+        
     return None
 
 # 4. CLEAN VIDEO EDITING (Bina kisi screen text ke)
@@ -183,4 +203,4 @@ if __name__ == "__main__":
     bg_path = get_bg_video(data["search_query"])
     build_video(bg_path)
     upload_video("output.mp4", data)
-            
+    
