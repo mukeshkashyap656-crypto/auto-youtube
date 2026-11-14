@@ -19,17 +19,20 @@ from moviepy import (
     concatenate_videoclips,
 )
 
-# 1. VIRAL FREE FIRE SHORTS SCRIPT
+# 1. VIRAL NOVEMBER 2026 FREE FIRE SHORTS SCRIPT
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
     themes = [
+        "Free Fire India vs Free Fire MAX: Which is Better for Low End Phones?",
+        "FFWS Global Finals 2026 Shocking Pro Moments & Free Rewards",
+        "Upcoming OB56 Update & Advance Server Biggest Secret Changes",
+        "How to Claim Free Exclusive Gloo Wall in Ranked Season Goals Fast",
+        "Storm Arena & Upcoming Cosmic Fist Event Honest Review",
+        "Free Fire India New Parental Control & Playtime Limit Rules Explained",
         "Secret Red Number Headshot Sensitivity & Fire Button Size Trick",
         "99% Players Make This Big Mistake in Clash Squad Rank",
         "MP40 vs M1887 or Best Character Skill Debate (Comment Battle)",
-        "Old Free Fire Rare Facts & Nostalgia That New Players Don't Know",
-        "Fast Crouch Gloo Wall & 1v4 Clutch Pro Secret",
-        "BR Rank Secret Survival & Hidden Pro Strategy",
     ]
     chosen_theme = random.choice(themes)
 
@@ -39,9 +42,9 @@ def generate_script():
     - Start immediately with a shocking 1-line hook (NO "Hello dosto" or intro).
     - End with a short question asking viewers to comment their choice/opinion.
     - Return ONLY valid JSON with these exact keys:
-    - "title": Catchy Hinglish title under 60 chars with #shorts #freefire
-    - "description": 2 lines gaming description with #freefire #freefireindia #freefireshorts #shorts
-    - "tags": list of 5 short tags like ["freefire", "freefireshorts", "headshot", "gaming", "shorts"]
+    - "title": Catchy Hinglish title under 60 chars with #shorts #freefireindia
+    - "description": 2 lines gaming description with #freefireindia #freefiremax #ffws2026 #ob56update #freefireshorts #shorts
+    - "tags": list of 6 short tags like ["freefireindia", "freefiremax", "ffws2026", "freefireshorts", "gaming", "shorts"]
     - "search_query": 2 English words for background video (pick from: "gaming neon", "esports gamer", "cyberpunk dark", "abstract laser")
     - "voice_text": 3 short, punchy sentences in natural spoken Hindi (Devanagari script, 35-45 words total). Use commas and full stops for natural human breathing pauses so it doesn't sound robotic.
     """
@@ -151,7 +154,7 @@ def upload_video(video_file, data):
             "snippet": {
                 "title": data["title"][:95],
                 "description": data["description"],
-                "tags": data.get("tags", ["freefire", "shorts", "gaming"]),
+                "tags": data.get("tags", ["freefireindia", "shorts", "gaming"]),
                 "categoryId": "20",
             },
             "status": {
