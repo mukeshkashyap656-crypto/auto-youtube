@@ -88,7 +88,6 @@ async def make_voice(text, filename="voice.mp3"):
 
 # 3. BACKGROUND VIDEO (Apna clips folder ya Safe Pixabay)
 def get_bg_video(query, filename="bg.mp4"):
-    # Apne clips folder mein kisi bhi format ki video dhundhega
     local_clips = []
     for ext in ("*.mp4", "*.MP4", "*.mkv", "*.mov", "*.webm"):
         local_clips.extend(glob.glob(f"clips/{ext}"))
@@ -102,7 +101,6 @@ def get_bg_video(query, filename="bg.mp4"):
     try:
         api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
         if not api_key:
-            print("PIXABAY_API_KEY missing!")
             return None
 
         res = requests.get(
@@ -111,21 +109,9 @@ def get_bg_video(query, filename="bg.mp4"):
             timeout=30,
         )
         if res.status_code != 200 or not res.text.strip():
-            print("Pixabay returned empty response, trying fallback...")
             return None
 
-        data = res.json()
-        hits = data.get("hits", [])
-
-        if not hits:
-            res = requests.get(
-                "https://pixabay.com",
-                params={"key": api_key, "q": "gaming", "per_page": 5},
-                timeout=30,
-            )
-            if res.status_code == 200 and res.text.strip():
-                hits = res.json().get("hits", [])
-
+        hits = res.json().get("hits", [])
         if hits:
             videos = random.choice(hits).get("videos", {})
             for quality in ("medium", "small", "large", "tiny"):
@@ -134,7 +120,6 @@ def get_bg_video(query, filename="bg.mp4"):
                     video_data = requests.get(mp4_link, timeout=60).content
                     with open(filename, "wb") as f:
                         f.write(video_data)
-                    print("Downloaded Pixabay video successfully!")
                     return filename
     except Exception as e:
         print(f"Pixabay error safely handled: {e}")
@@ -203,4 +188,4 @@ if __name__ == "__main__":
     bg_path = get_bg_video(data["search_query"])
     build_video(bg_path)
     upload_video("output.mp4", data)
-    
+                    
