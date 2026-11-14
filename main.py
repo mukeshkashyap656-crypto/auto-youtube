@@ -15,8 +15,6 @@ from googleapiclient.http import MediaFileUpload
 from moviepy import (
     AudioFileClip,
     ColorClip,
-    CompositeVideoClip,
-    TextClip,
     VideoFileClip,
     concatenate_videoclips,
 )
@@ -45,15 +43,14 @@ def generate_script():
     - "description": 2 lines gaming description with #freefire #freefireindia #freefireshorts #shorts
     - "tags": list of 5 short tags like ["freefire", "freefireshorts", "headshot", "gaming", "shorts"]
     - "search_query": 2 English words for background video (pick from: "gaming neon", "esports gamer", "cyberpunk dark", "abstract laser")
-    - "voice_text": 3 short, high-energy sentences in natural Hindi (Devanagari script, 35-45 words total)
-    - "screen_text": ONLY 3 to 5 words MAX in Hinglish/English ALL CAPS, NO emojis (example: "99% PLAYERS YEH GALTI KARTE HAIN", "HEADSHOT SECRET TRICK", "MP40 VS M1887 KING?")
+    - "voice_text": 3 short, punchy sentences in natural spoken Hindi (Devanagari script, 35-45 words total). Use commas and full stops for natural human breathing pauses so it doesn't sound robotic.
     """
 
     last_err = None
     for attempt in range(4):
         try:
             response = client.models.generate_content(
-                model="gemini-3.8-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
@@ -67,9 +64,15 @@ def generate_script():
             time.sleep(12)
     raise last_err
 
-# 2. TEZ GAMING STYLE HINDI VOICEOVER
+# 2. NATURAL DEEP MALE GAMING VOICEOVER
 async def make_voice(text, filename="voice.mp3"):
-    communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+10%")
+    # Normal rate (+0%) aur thodi bhari pitch (-4Hz) se male voice bilkul asli lagti hai
+    communicate = edge_tts.Communicate(
+        text, 
+        "hi-IN-MadhurNeural", 
+        rate="+0%", 
+        pitch="-4Hz"
+    )
     await communicate.save(filename)
 
 # 3. BACKGROUND VIDEO (Apna clips folder ya Pixabay)
@@ -82,7 +85,7 @@ def get_bg_video(query, filename="bg.mp4"):
 
     api_key = os.environ["PIXABAY_API_KEY"].strip()
     res = requests.get(
-        "https://pixabay.com/api/videos/",
+        "https://pixabay.com",
         params={"key": api_key, "q": query, "per_page": 5},
         timeout=30,
     ).json()
@@ -90,7 +93,7 @@ def get_bg_video(query, filename="bg.mp4"):
 
     if not hits:
         res = requests.get(
-            "https://pixabay.com/api/videos/",
+            "https://pixabay.com",
             params={"key": api_key, "q": "gaming", "per_page": 5},
             timeout=30,
         ).json()
@@ -107,8 +110,8 @@ def get_bg_video(query, filename="bg.mp4"):
                 return filename
     return None
 
-# 4. CLEAN VIDEO EDITING
-def build_video(screen_text, bg_path, output_file="output.mp4"):
+# 4. CLEAN VIDEO EDITING (Bina kisi screen text ke)
+def build_video(bg_path, output_file="output.mp4"):
     audio = AudioFileClip("voice.mp3")
     duration = audio.duration
 
@@ -125,19 +128,7 @@ def build_video(screen_text, bg_path, output_file="output.mp4"):
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(duration)
 
-    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.20).with_duration(duration)
-    txt = TextClip(
-        font="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        text=screen_text.upper(),
-        font_size=54,
-        color="yellow",
-        stroke_color="black",
-        stroke_width=4,
-        method="caption",
-        size=(900, None),
-    ).with_duration(duration).with_position(("center", 240))
-
-    final = CompositeVideoClip([bg, overlay, txt]).with_audio(audio)
+    final = bg.with_audio(audio)
     final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac")
     audio.close()
     final.close()
@@ -147,10 +138,10 @@ def upload_video(video_file, data):
     creds = Credentials(
         token=None,
         refresh_token=os.environ["YT_REFRESH_TOKEN"].strip(),
-        token_uri="https://oauth2.googleapis.com/token",
+        token_uri="https://googleapis.com",
         client_id=os.environ["YT_CLIENT_ID"].strip(),
         client_secret=os.environ["YT_CLIENT_SECRET"].strip(),
-        scopes=["https://www.googleapis.com/auth/youtube.upload"],
+        scopes=["https://googleapis.com"],
     )
     creds.refresh(Request())
 
@@ -179,5 +170,6 @@ if __name__ == "__main__":
     print("Generated Title:", data["title"])
     asyncio.run(make_voice(data["voice_text"]))
     bg_path = get_bg_video(data["search_query"])
-    build_video(data["screen_text"], bg_path)
+    build_video(bg_path)
     upload_video("output.mp4", data)
+    
