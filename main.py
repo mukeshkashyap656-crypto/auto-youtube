@@ -19,9 +19,10 @@ from moviepy import (
     concatenate_videoclips,
 )
 
-# 1. AI SE SCRIPT AUR TITLE LIKHWANA (Gemini 2.5 Flash)
+# 1. AI SE SCRIPT AUR TITLE LIKHWANA (Gemini 3.8 Flash)
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
+    client = genai.Client(api_key=api_key)
     themes = ["Space & Universe", "Human Body", "Ocean Mysteries", "Science Facts", "World History", "Animal Kingdom"]
     chosen_theme = random.choice(themes)
 
@@ -37,11 +38,10 @@ def generate_script():
     """
 
     last_err = None
-    for use_vertex in (False, True):
+    for model_name in ("gemini-3.8-flash", "gemini-2.5-flash"):
         try:
-            client = genai.Client(vertexai=True, api_key=api_key) if use_vertex else genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=model_name,
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
@@ -51,7 +51,7 @@ def generate_script():
             return json.loads(text)
         except Exception as e:
             last_err = e
-            print(f"Gemini attempt (vertexai={use_vertex}) info: {e}")
+            print(f"Model {model_name} info: {e}")
     raise last_err
 
 # 2. FREE AI VOICEOVER BANANA (Edge-TTS Hindi Male Voice)
