@@ -50,7 +50,7 @@ def generate_script():
     for attempt in range(4):
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.8-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
@@ -66,7 +66,6 @@ def generate_script():
 
 # 2. NATURAL DEEP MALE GAMING VOICEOVER
 async def make_voice(text, filename="voice.mp3"):
-    # Normal rate (+0%) aur thodi bhari pitch (-4Hz) se male voice bilkul asli lagti hai
     communicate = edge_tts.Communicate(
         text, 
         "hi-IN-MadhurNeural", 
