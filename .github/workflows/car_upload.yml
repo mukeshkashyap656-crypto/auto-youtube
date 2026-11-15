@@ -3,11 +3,12 @@ name: Auto Car Game Shorts
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 13 * * *'
+    - cron: '00 12 * * *' # 5:30 PM IST (GitHub delay ke saath ~6:00 PM IST par upload)
 
 jobs:
   build-and-upload-car:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -15,6 +16,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install system packages
         run: |
