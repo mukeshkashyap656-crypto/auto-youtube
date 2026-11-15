@@ -33,67 +33,67 @@ def get_gaming_font():
     for pattern in ("fonts/*.ttf", "*.ttf"):
         found = glob.glob(pattern)
         if found:
-            print("Using local font:", found[0])
             return found[0]
-
     tmp_font = "/tmp/Anton-Regular.ttf"
-    if not os.path.exists(tmp_font):
-        try:
-            r = requests.get(ANTON_FONT_URL, timeout=20)
-            if r.ok and len(r.content) > 10000:
-                with open(tmp_font, "wb") as f:
-                    f.write(r.content)
-                print("Downloaded Anton gaming font!")
-                return tmp_font
-        except Exception as e:
-            print("Font download skipped, using fallback:", e)
-    elif os.path.exists(tmp_font):
+    if os.path.exists(tmp_font):
         return tmp_font
-
+    try:
+        r = requests.get(ANTON_FONT_URL, timeout=20)
+        if r.ok and len(r.content) > 10000:
+            with open(tmp_font, "wb") as f:
+                f.write(r.content)
+            return tmp_font
+    except Exception:
+        pass
     return FALLBACK_FONT
 
 
-# 1. ASPHALT / SUPERCAR RACING & NITRO TRICKS (Matches Your Gameplay Clips 100%)
+def clean_ascii_caps(txt):
+    cleaned = re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper()
+    return cleaned or "CAR GAMING"
+
+
+# 1. VIRAL FACTS / BATTLES / GTA 6 SECRETS (Works 100% Naturally Over Any Car Gameplay!)
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
     themes = [
-        "300 KMPH Nitro Boost vs Normal Speed: Kaun Jeetega Race?",
-        "Asphalt Racing ka Sabse Khatarnak Drift aur Knockdown Trick!",
-        "Red Supercar vs Blue Sports Car: Last Second Photo Finish!",
-        "99% Gamers Nitro Timing Mein Yeh Badi Galti Karte Hain!",
-        "Rivals ko Ek Perfect 360 Spin Mein Kaise Knock Out Karein?",
-        "Ramp Jump + 360 Barrel Roll: Kaise Karein Perfect Nitro Landing?",
-        "Lamborghini vs Bugatti vs Porsche: Kaun Hai Track King?",
-        "Sharp Turn par Speed Bina Kam Kiye Drift Kaise Maarein?",
-        "Blue Nitro vs Shockwave Nitro: Kaunsa Hai Sabse Tez?",
-        "Asphalt Legends Pro Racers ki 3 Secret Speed Tricks!",
+        "Bugatti Chiron vs Koenigsegg Jesko: Asli Zindagi Mein Kaun Tez Hai?",
+        "GTA 6 ki 3 Aisi Supercars Jo Real Life Mein 30 Crore Se Mehengi Hain!",
+        "Supra MK4 vs Nissan GTR R35: Kaun Hai Asli JDM King?",
+        "99% Gamers Nitro aur Drift Timing Mein Yeh Galti Karte Hain!",
+        "Lamborghini Revuelto vs Ferrari SF90: Kaun Hai Asli Track Monster?",
+        "Duniya ki 3 Sabse Mehengi Supercars Jo Sirf Racing Games Mein Chala Sakte Ho!",
+        "Porsche 911 GT3 RS vs Bugatti: Corners Mein Kaun Jeetega?",
+        "F1 Car vs Supercar: 0 se 300 KMPH Race Mein Kaun Jeetega?",
+        "GTA 6 Car Physics vs GTA 5: 3 Bade Badlav Jo Sabko Chaunka Denge!",
+        "Real Life Car Crash vs Gaming Physics: Kaunsa Zyada Khatarnak Hai?",
     ]
     chosen_theme = random.choice(themes)
     today_str = time.strftime("%d %B %Y")
 
     prompt = f"""
-    Today is {today_str}. Create a super fast-paced, viral 17-second Indian Car Racing YouTube Short matching high-speed sports car & nitro racing gameplay on: "{chosen_theme}".
+    Today is {today_str}. Create a super engaging, viral 18-second Indian Supercar & Gaming Facts YouTube Short on: "{chosen_theme}".
     Rules:
-    - Start immediately with a shocking 2-second question/challenge hook (NO "Hello doston", NO intro).
-    - Do NOT mention Thar, Fortuner, Scorpio, or offroad SUVs — keep it strictly about fast supercars, sports cars, nitro, drift, and racing!
-    - Keep total voiceover 32-40 words in natural energetic Hindi (Devanagari script).
-    - Last segment MUST trigger comments (e.g., "Comment mein apni dream supercar likho!").
+    - Do NOT do fake live play-by-play commentary (do NOT say "look that red car just crashed"). Instead deliver mind-blowing facts, comparisons, and pro racing secrets like a top Indian gaming YouTuber!
+    - Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
+    - Keep total voiceover 36-44 words in energetic conversational Hindi (Devanagari script).
+    - Last segment MUST ask viewers to pick a side or comment their favorite car.
     - IMPORTANT: "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
-    - Return ONLY valid JSON with these exact keys:
+    - Return ONLY valid JSON:
     {{
-      "title": "Catchy Hinglish title under 58 chars with #shorts #cargaming",
-      "description": "2 line racing description with #cargaming #asphalt #supercars #shorts",
-      "tags": ["cargaming", "asphalt", "supercars", "racing", "shorts"],
+      "title": "Catchy Hinglish title under 58 chars with #shorts #supercars #cargaming",
+      "description": "2 line car gaming facts description with #cargaming #gta6 #supercars #shorts",
+      "tags": ["cargaming", "supercars", "gta6", "bugatti", "shorts"],
       "search_query": "2 English words from: sports car, car racing, supercar drift, lamborghini",
       "screen_text": "3 TO 5 WORDS CAPS HOOK",
       "segments": [
-        {{"voice": "Hindi sentence 1 (5-6 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi sentence 2 (5-6 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi sentence 3 (5-6 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi sentence 4 (5-6 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi sentence 5 (5-6 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi sentence 6 (5-6 words)", "caption": "COMMENT YOUR CAR"}}
+        {{"voice": "Hindi fact line 1 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi fact line 2 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi fact line 3 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi fact line 4 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi fact line 5 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi CTA line 6 (5-7 words)", "caption": "COMMENT YOUR PICK"}}
       ]
     }}
     """
@@ -119,7 +119,7 @@ def generate_script():
     raise last_err
 
 
-# 2. ENERGETIC INDIAN GAMING VOICEOVER (Fast Indian Edge-TTS + Optional ElevenLabs)
+# 2. ENERGETIC INDIAN VOICEOVER
 async def make_voice(text, filename="car_voice.mp3"):
     use_eleven = os.environ.get("USE_ELEVENLABS_CAR", "false").lower() == "true"
     eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
@@ -148,13 +148,13 @@ async def make_voice(text, filename="car_voice.mp3"):
 
     communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+15%")
     await communicate.save(filename)
-    print("Voice generated via Indian Edge-TTS (+15% fast gaming pace)!")
+    print("Voice generated via Indian Edge-TTS (+15%)!")
 
 
-# 3. CLIPS COLLECTOR (Checks clips/car/, clips/, and Pixabay fallback)
+# 3. CLIPS COLLECTOR (clips/car/, clips/gta6/, clips/, Pixabay fallback)
 def get_bg_clips(query, filename="car_bg.mp4"):
     local_clips = []
-    for folder in ("clips/car", "clips"):
+    for folder in ("clips/gta6", "clips/car", "clips"):
         for ext in ("*.mp4", "*.MP4", "*.mov", "*.mkv"):
             local_clips.extend(glob.glob(os.path.join(folder, ext)))
 
@@ -188,12 +188,7 @@ def get_bg_clips(query, filename="car_bg.mp4"):
     return []
 
 
-def clean_ascii_caps(txt):
-    cleaned = re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper()
-    return cleaned or "CAR GAMING"
-
-
-# 4. FAST-CUT 1.8s EDITING + AUTO MENU/LOADING SKIP + ANTON FONT + SFX/BGM + MEME
+# 4. HD BLUR-BACKDROP + CRISP CENTER GAMEPLAY (NO ZOOM BLUR!) + CAPTIONS + MEME
 def build_video(data, bg_paths, output_file="car_output.mp4"):
     font_path = get_gaming_font()
     voice = AudioFileClip("car_voice.mp3").with_volume_scaled(1.25)
@@ -207,8 +202,7 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
         for ext in ("*.mp3", "*.wav", "*.m4a"):
             all_audio_files.extend(glob.glob(os.path.join(folder, "**", ext), recursive=True))
 
-    bgm_candidates = []
-    sfx_candidates = []
+    bgm_candidates, sfx_candidates = [], []
     for af in all_audio_files:
         try:
             probe = AudioFileClip(af)
@@ -222,7 +216,6 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
 
     if bgm_candidates:
         chosen_bgm = random.choice(bgm_candidates)
-        print("Using BGM:", chosen_bgm)
         bgm_raw = AudioFileClip(chosen_bgm)
         opened_audio.append(bgm_raw)
         if bgm_raw.duration < duration:
@@ -241,11 +234,10 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
         except Exception:
             pass
 
-    # Fast 1.8s cuts from middle action part (skips dark 3-2-1 start & ending menu/loading screens)
     opened_clips = []
     segments_v = []
     if bg_paths:
-        target_cut = 1.8
+        target_cut = 2.0
         current_len = 0.0
         idx = 0
         while current_len < duration and idx < 30:
@@ -262,11 +254,27 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
             start_t = random.uniform(min_start, max_start) if max_start > min_start else 0.0
 
             seg = clip.subclipped(start_t, start_t + cut_len)
-            seg = seg.resized(height=1920)
-            if seg.w < 1080:
-                seg = seg.resized(width=1080)
-            seg = seg.cropped(x_center=seg.w / 2, y_center=seg.h / 2, width=1080, height=1920)
-            segments_v.append(seg)
+
+            # Live blurred vertical background
+            bg_fill = seg.resized(height=1920)
+            if bg_fill.w < 1080:
+                bg_fill = bg_fill.resized(width=1080)
+            bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
+
+            if seg.w >= seg.h:
+                # Horizontal 16:9 gameplay -> crisp sharp center frame over moving blurred BG
+                bg_blur = bg_fill.resized(width=80).resized((1080, 1920))
+                dark_veil = ColorClip(size=(1080, 1920), color=(8, 12, 22)).with_opacity(0.62).with_duration(cut_len)
+                fg = seg.resized(width=1080)
+                fg_y = max(360, (1920 - fg.h) // 2 - 110)
+                border = ColorClip(size=(1080, fg.h + 14), color=(220, 38, 38)).with_duration(cut_len).with_position(("center", fg_y - 7))
+                comp_seg = CompositeVideoClip([bg_blur, dark_veil, border, fg.with_position(("center", fg_y))], size=(1080, 1920)).with_duration(cut_len)
+            else:
+                # Already vertical 9:16 gameplay
+                dark_veil = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.18).with_duration(cut_len)
+                comp_seg = CompositeVideoClip([bg_fill, dark_veil], size=(1080, 1920)).with_duration(cut_len)
+
+            segments_v.append(comp_seg)
             current_len += cut_len
             idx += 1
 
@@ -277,14 +285,12 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(duration)
 
-    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.20).with_duration(duration)
-
     # Top Red Hook Banner
     banner_bg = (
         ColorClip(size=(960, 130), color=(185, 28, 28))
-        .with_opacity(0.90)
+        .with_opacity(0.92)
         .with_duration(duration)
-        .with_position(("center", 135))
+        .with_position(("center", 145))
     )
 
     title_txt = (
@@ -300,10 +306,10 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
             margin=(0, 10),
         )
         .with_duration(duration)
-        .with_position(("center", 155))
+        .with_position(("center", 165))
     )
 
-    # Synced Captions
+    # Synced Bold Captions cleanly below the HD gameplay box
     seg_list = data["segments"]
     total_chars = max(1, sum(len(s["voice"]) for s in seg_list))
     caption_clips = []
@@ -328,12 +334,12 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
             )
             .with_start(cur_t)
             .with_duration(seg_dur)
-            .with_position(("center", 1280))
+            .with_position(("center", 1290))
         )
         caption_clips.append(c_clip)
         cur_t += seg_dur
 
-    # Meme Reaction Overlay (smaller & higher so it stays clean above captions)
+    # Meme Reaction Overlay
     meme_overlays = []
     meme_files = []
     for ext in ("*.mp4", "*.png", "*.jpg", "*.jpeg"):
@@ -348,20 +354,19 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
                 m_vid = VideoFileClip(chosen_meme)
                 opened_clips.append(m_vid)
                 m_dur = min(meme_dur, m_vid.duration)
-                m_sub = m_vid.subclipped(0, m_dur).resized(width=380).with_start(meme_start).with_position(("center", 360))
+                m_sub = m_vid.subclipped(0, m_dur).resized(width=340).with_start(meme_start).with_position(("center", 320))
                 meme_overlays.append(m_sub)
                 if m_vid.audio is not None:
                     audio_tracks.append(m_vid.audio.subclipped(0, m_dur).with_start(meme_start).with_volume_scaled(0.65))
             else:
-                m_img = ImageClip(chosen_meme).resized(width=380).with_duration(meme_dur).with_start(meme_start).with_position(("center", 360))
+                m_img = ImageClip(chosen_meme).resized(width=340).with_duration(meme_dur).with_start(meme_start).with_position(("center", 320))
                 meme_overlays.append(m_img)
-            print("Added meme reaction:", chosen_meme)
         except Exception as e:
             print("Meme skipped:", e)
 
     final_audio = CompositeAudioClip(audio_tracks) if len(audio_tracks) > 1 else voice
-    final = CompositeVideoClip([bg, overlay, banner_bg, title_txt, *meme_overlays, *caption_clips]).with_audio(final_audio)
-    final.write_videofile(output_file, fps=30, codec="libx264", audio_codec="aac")
+    final = CompositeVideoClip([bg, banner_bg, title_txt, *meme_overlays, *caption_clips]).with_audio(final_audio)
+    final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", threads=4)
 
     for a in opened_audio:
         a.close()
@@ -389,7 +394,7 @@ def upload_video(video_file, data):
             "snippet": {
                 "title": data["title"][:95],
                 "description": data["description"],
-                "tags": data.get("tags", ["cargaming", "asphalt", "supercars", "shorts"]),
+                "tags": data.get("tags", ["cargaming", "supercars", "gta6", "shorts"]),
                 "categoryId": "20",
             },
             "status": {
