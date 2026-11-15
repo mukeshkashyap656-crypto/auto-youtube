@@ -23,43 +23,49 @@ from moviepy import (
     concatenate_videoclips,
 )
 
-# 1. VIRAL CAR GAMING & SUPERCARS SCRIPT (15+ Fresh Formats)
+# 1. VIRAL INDIAN CAR GAMING & SUPERCAR TOPICS (Synced Voice + Captions)
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
     themes = [
-        "Fastest Supercars & Hypercars Speed Secrets in Racing Games",
-        "99% Gamers Make This Big Mistake While Drifting & Cornering",
-        "Bugatti vs Lamborghini vs Koenigsegg Speed Debate (Comment Battle)",
-        "GTA 5 / Forza Horizon / Car Racing Games Secret Pro Tricks",
-        "Most Expensive & Rare Supercars Facts That Will Shock You",
-        "How Pro Car Racers Win Last-Second Overtakes in Games",
-        "Braking Point Secret That Cuts Lap Time by 3 Seconds",
-        "Manual Gear vs Automatic Gear: Which Is Actually Faster?",
-        "Top 3 Fastest Cars in Asphalt / Forza / Racing Games",
-        "Why F1 Cars Corner Faster Than Any Supercar",
-        "Nitro & Boost Timing Mistake That Costs You First Place",
-        "Supercar Myth vs Fact That Racing Gamers Believe",
-        "JDM Cars vs European Hypercars (Comment Battle)",
-        "Secret Wet Track & Drift Control Pro Technique",
-        "Insane Top Speed Records & Engine Sound Facts",
+        "GTA 6 vs GTA 5 Car Crash Physics: Kaun Zyada Real Hai?",
+        "Kya 50 Crore ki Bugatti 1000 Speed Breakers Paar Kar Payegi?",
+        "Mega Ramp Death Jump: 400 KMPH par Car Hawa Mein Udd Gayi!",
+        "Mahindra Thar vs Lamborghini Offroad Challenge in Car Games",
+        "300 KMPH par Car ke Brake Fail Ho Jaye Toh Kya Hoga?",
+        "GTA 6 ki 3 Sabse Khatarnak Supercars Jo Sabko Chahiye",
+        "Police Chase Se Bachne ki 1000 IQ Car Trick",
+        "Duniya ki Sabse Fast Car vs Fighter Jet Race in Games",
+        "BeamNG Drive Sabse Khatarnak Crash Test Challenge",
+        "99% Gamers Car Jump Mein Yeh Galti Karte Hain",
+        "1 Crore vs 50 Crore Supercar Ramp Jump Test",
+        "Impossible Bridge Stunt: Kya Aakhiri Second Mein Bachegi Car?",
     ]
     chosen_theme = random.choice(themes)
     today_str = time.strftime("%d %B %Y")
 
     prompt = f"""
-    Today is {today_str}. Create a fresh, fast-paced 20-second viral Indian Car Gaming & Supercars YouTube Short on: {chosen_theme}.
+    Today is {today_str}. Create a super fast-paced, viral 18-second Indian Car Gaming YouTube Short on: "{chosen_theme}".
     Rules:
-    - Start immediately with a shocking 1-line hook (NO "Hello dosto" or intro).
-    - End with a short question asking viewers to comment their favorite car.
+    - Start immediately with a shocking 2-second question/challenge hook (NO "Hello doston", NO intro).
+    - Keep total voiceover 35-42 words in natural conversational Hindi (Devanagari script) so it sounds energetic.
+    - Last segment MUST ask a quick comment question ("Aapki favourite car kaunsi hai?").
     - Return ONLY valid JSON with these exact keys:
-    - "title": Catchy Hinglish title under 60 chars with #shorts #cargaming #supercars
-    - "description": 2 lines car gaming description with #cargame #racing #supercars #shorts
-    - "tags": list of 5 short tags like ["cargaming", "supercars", "racing", "shorts", "cars"]
-    - "search_query": 2 English words for stock car video (pick from: "sports car", "car racing", "supercar drift", "lamborghini")
-    - "voice_text": 3 to 4 short, high-energy sentences in natural Hindi (Devanagari script, 35-45 words total)
-    - "screen_text": ONLY 3 to 5 words MAX in Hinglish/English ALL CAPS, NO emojis (example: "BUGATTI VS LAMBORGHINI KING?", "99% RACERS YEH GALTI KARTE", "FASTEST CAR SECRET TRICK")
-    - "captions": list of 4 short punchy Hinglish/English ALL CAPS lines (3 to 4 words each, NO emojis) matching the voiceover order
+    {{
+      "title": "Catchy Hinglish title under 58 chars with #shorts #cargaming",
+      "description": "2 line gaming description with #cargaming #gta6 #supercars #shorts",
+      "tags": ["cargaming", "gta6", "supercars", "beamng", "shorts"],
+      "search_query": "2 English words from: sports car, car racing, supercar drift, lamborghini",
+      "screen_text": "3 TO 5 WORDS CAPS HOOK NO EMOJI",
+      "segments": [
+        {{"voice": "Hindi sentence 1 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 2 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 3 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 4 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 5 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 6 (5-7 words)", "caption": "COMMENT YOUR CAR"}}
+      ]
+    }}
     """
 
     last_err = None
@@ -73,55 +79,60 @@ def generate_script():
             text = response.text.strip()
             if text.startswith("```"):
                 text = text.strip("`").replace("json", "", 1).strip()
-            return json.loads(text)
+            data = json.loads(text)
+            if data.get("segments"):
+                return data
         except Exception as e:
             last_err = e
             print(f"Attempt {attempt + 1} info: {e}")
             time.sleep(12)
     raise last_err
 
-# 2. TEZ GAMING STYLE HINDI VOICEOVER (ElevenLabs + Edge-TTS Backup)
-async def make_voice(text, filename="car_voice.mp3"):
-    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
-    voice_id = "JBFqnCBsd6RMkjVDRZzb"
 
-    if eleven_key:
+# 2. ENERGETIC INDIAN GAMING VOICEOVER (Edge-TTS Indian Hindi Primary + ElevenLabs Optional)
+async def make_voice(text, filename="car_voice.mp3"):
+    # Note: hi-IN-MadhurNeural sounds natural & energetic for Indian Hindi Shorts
+    use_eleven = os.environ.get("USE_ELEVENLABS_CAR", "false").lower() == "true"
+    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+
+    if use_eleven and eleven_key:
         try:
+            voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128"
-            headers = {
-                "xi-api-key": eleven_key,
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "text": text,
-                "model_id": "eleven_flash_v2_5",
-                "voice_settings": {
-                    "stability": 0.45,
-                    "similarity_boost": 0.75,
-                    "speed": 1.1,
+            res = requests.post(
+                url,
+                headers={"xi-api-key": eleven_key, "Content-Type": "application/json"},
+                json={
+                    "text": text,
+                    "model_id": "eleven_flash_v2_5",
+                    "voice_settings": {"stability": 0.4, "similarity_boost": 0.8, "speed": 1.15},
                 },
-            }
-            res = requests.post(url, headers=headers, json=payload, timeout=30)
+                timeout=30,
+            )
             if res.status_code == 200:
                 with open(filename, "wb") as f:
                     f.write(res.content)
                 print("Voice generated via ElevenLabs!")
                 return
-            else:
-                print(f"ElevenLabs failed ({res.status_code}): {res.text[:200]} -> Using edge-tts")
         except Exception as e:
-            print(f"ElevenLabs error: {e} -> Using edge-tts")
+            print(f"ElevenLabs fallback triggered: {e}")
 
-    communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+10%")
+    communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+15%")
     await communicate.save(filename)
-    print("Voice generated via Edge-TTS!")
+    print("Voice generated via Indian Edge-TTS (+15% fast gaming pace)!")
 
-# 3. MULTIPLE CAR CLIPS (Sirf clips/car ya Pixabay)
+
+# 3. CLIPS COLLECTOR (Checks clips/car/, clips/, and Pixabay fallback)
 def get_bg_clips(query, filename="car_bg.mp4"):
-    local_clips = glob.glob("clips/car/*.mp4")
+    local_clips = []
+    for folder in ("clips/car", "clips"):
+        for ext in ("*.mp4", "*.MP4", "*.mov", "*.mkv"):
+            local_clips.extend(glob.glob(os.path.join(folder, ext)))
+
+    local_clips = list(dict.fromkeys(local_clips))
     if local_clips:
         random.shuffle(local_clips)
-        chosen = local_clips[:4]
+        chosen = local_clips[:8]
         print("Using own car clips:", chosen)
         return chosen
 
@@ -131,125 +142,141 @@ def get_bg_clips(query, filename="car_bg.mp4"):
         params={"key": api_key, "q": query, "per_page": 6},
         timeout=30,
     ).json()
-    hits = res.get("hits", [])
-
-    if not hits:
-        res = requests.get(
-            "https://pixabay.com/api/videos/",
-            params={"key": api_key, "q": "sports car", "per_page": 6},
-            timeout=30,
-        ).json()
-        hits = res.get("hits", [])
+    hits = res.get("hits", []) or requests.get(
+        "https://pixabay.com/api/videos/",
+        params={"key": api_key, "q": "sports car", "per_page": 6},
+        timeout=30,
+    ).json().get("hits", [])
 
     if hits:
         videos = random.choice(hits).get("videos", {})
         for quality in ("medium", "small", "large", "tiny"):
             if quality in videos and videos[quality].get("url"):
-                mp4_link = videos[quality]["url"]
-                video_data = requests.get(mp4_link, timeout=60).content
+                video_data = requests.get(videos[quality]["url"], timeout=60).content
                 with open(filename, "wb") as f:
                     f.write(video_data)
                 return [filename]
     return []
 
-# 4. FAST-CUT EDITING + DYNAMIC CAPTIONS + BGM
+
+# 4. FAST-CUT 1.8s EDITING + SYNCED CAPTIONS + SFX/BGM MIX
 def build_video(data, bg_paths, output_file="car_output.mp4"):
-    voice = AudioFileClip("car_voice.mp3")
+    voice = AudioFileClip("car_voice.mp3").with_volume_scaled(1.25)
     duration = voice.duration
 
-    music_files = glob.glob("music/*.mp3")
+    # Checks BOTH sfx/ and music/ folders!
+    music_files = []
+    for folder in ("sfx", "music"):
+        for ext in ("*.mp3", "*.wav", "*.m4a"):
+            music_files.extend(glob.glob(os.path.join(folder, "**", ext), recursive=True))
+
     bgm_raw = None
     if music_files:
-        bgm_raw = AudioFileClip(random.choice(music_files))
+        chosen_bgm = random.choice(music_files)
+        print("Mixing background track:", chosen_bgm)
+        bgm_raw = AudioFileClip(chosen_bgm)
         if bgm_raw.duration < duration:
             loops = int(duration // bgm_raw.duration) + 1
             bgm = concatenate_audioclips([bgm_raw] * loops)
         else:
             bgm = bgm_raw
-        bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.12)
+        bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.14)
         final_audio = CompositeAudioClip([voice, bgm])
     else:
         final_audio = voice
 
+    # Fast 1.8-second cuts for high retention
     opened_clips = []
-    segments = []
+    segments_v = []
     if bg_paths:
-        target_cut = 4.5
+        target_cut = 1.8
         current_len = 0.0
         idx = 0
-        while current_len < duration and idx < 20:
+        while current_len < duration and idx < 30:
             clip = VideoFileClip(bg_paths[idx % len(bg_paths)]).without_audio()
             opened_clips.append(clip)
-            if clip.duration <= 0.2:
+            if clip.duration <= 0.3:
                 idx += 1
                 continue
             cut_len = min(target_cut, clip.duration, duration - current_len)
             max_start = max(0.0, clip.duration - cut_len)
-            start_t = random.uniform(0.0, max_start) if max_start > 0.5 else 0.0
+            start_t = random.uniform(0.0, max_start) if max_start > 0.3 else 0.0
 
             seg = clip.subclipped(start_t, start_t + cut_len)
             seg = seg.resized(height=1920)
             if seg.w < 1080:
                 seg = seg.resized(width=1080)
             seg = seg.cropped(x_center=seg.w / 2, y_center=seg.h / 2, width=1080, height=1920)
-            segments.append(seg)
+            segments_v.append(seg)
             current_len += cut_len
             idx += 1
 
-    if segments:
-        bg = concatenate_videoclips(segments)
+    if segments_v:
+        bg = concatenate_videoclips(segments_v)
         if bg.duration > duration:
             bg = bg.subclipped(0, duration)
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(duration)
 
-    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.22).with_duration(duration)
+    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.20).with_duration(duration)
+
+    # Top Red Hook Banner (grabs attention in 0.5 sec)
+    banner_bg = (
+        ColorClip(size=(960, 130), color=(185, 28, 28))
+        .with_opacity(0.88)
+        .with_duration(duration)
+        .with_position(("center", 140))
+    )
 
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     title_txt = (
         TextClip(
             font=font_path,
             text=data["screen_text"].upper(),
-            font_size=48,
-            color="yellow",
+            font_size=50,
+            color="white",
             stroke_color="black",
             stroke_width=4,
             method="caption",
-            size=(920, None),
+            size=(900, None),
             margin=(0, 12),
         )
         .with_duration(duration)
-        .with_position(("center", 200))
+        .with_position(("center", 165))
     )
 
-    captions = data.get("captions") or [data["screen_text"]]
-    captions = [str(c).strip().upper() for c in captions if str(c).strip()]
-    if not captions:
-        captions = [data["screen_text"].upper()]
-
-    cap_dur = duration / len(captions)
+    # Synced Captions (matched proportionally to each spoken Hindi line!)
+    seg_list = data["segments"]
+    total_chars = max(1, sum(len(s["voice"]) for s in seg_list))
     caption_clips = []
-    for i, cap_text in enumerate(captions):
+    cur_t = 0.0
+
+    for i, item in enumerate(seg_list):
+        seg_dur = (len(item["voice"]) / total_chars) * duration
+        cap_text = str(item["caption"]).strip().upper()
+        cap_color = "yellow" if i % 2 == 0 else "white"
+
         c_clip = (
             TextClip(
                 font=font_path,
                 text=cap_text,
-                font_size=56,
-                color="white",
+                font_size=68,
+                color=cap_color,
                 stroke_color="black",
-                stroke_width=5,
+                stroke_width=6,
                 method="caption",
                 size=(920, None),
-                margin=(0, 12),
+                margin=(0, 14),
             )
-            .with_start(i * cap_dur)
-            .with_duration(cap_dur)
-            .with_position(("center", 1220))
+            .with_start(cur_t)
+            .with_duration(seg_dur)
+            .with_position(("center", 1250))
         )
         caption_clips.append(c_clip)
+        cur_t += seg_dur
 
-    final = CompositeVideoClip([bg, overlay, title_txt, *caption_clips]).with_audio(final_audio)
-    final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac")
+    final = CompositeVideoClip([bg, overlay, banner_bg, title_txt, *caption_clips]).with_audio(final_audio)
+    final.write_videofile(output_file, fps=30, codec="libx264", audio_codec="aac")
 
     voice.close()
     if bgm_raw:
@@ -258,7 +285,8 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
         c.close()
     final.close()
 
-# 5. CAR GAME CHANNEL PAR PUBLIC AUTO UPLOAD KARNA
+
+# 5. AUTO UPLOAD TO CAR GAME CHANNEL
 def upload_video(video_file, data):
     creds = Credentials(
         token=None,
@@ -290,10 +318,12 @@ def upload_video(video_file, data):
     response = request.execute()
     print("SUCCESS! Car Video Uploaded. ID:", response["id"])
 
+
 if __name__ == "__main__":
     data = generate_script()
     print("Generated Title:", data["title"])
-    asyncio.run(make_voice(data["voice_text"]))
-    bg_paths = get_bg_clips(data["search_query"])
+    full_voice_text = " ".join(s["voice"] for s in data["segments"])
+    asyncio.run(make_voice(full_voice_text))
+    bg_paths = get_bg_clips(data.get("search_query", "sports car"))
     build_video(data, bg_paths)
     upload_video("car_output.mp4", data)
