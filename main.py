@@ -152,11 +152,12 @@ def get_bg_clips(query, filename="bg.mp4"):
                 return [filename]
     return []
 
-# 4. FAST-CUT EDITING + DYNAMIC CAPTIONS + BGM
+# 4. FAST-CUT EDITING + CAPTIONS + BGM + ENDING MEME
 def build_video(data, bg_paths, output_file="output.mp4"):
     voice = AudioFileClip("voice.mp3")
     duration = voice.duration
 
+    audio_layers = [voice]
     music_files = glob.glob("music/*.mp3")
     bgm_raw = None
     if music_files:
@@ -167,9 +168,7 @@ def build_video(data, bg_paths, output_file="output.mp4"):
         else:
             bgm = bgm_raw
         bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.12)
-        final_audio = CompositeAudioClip([voice, bgm])
-    else:
-        final_audio = voice
+        audio_layers.append(bgm)
 
     opened_clips = []
     segments = []
@@ -248,12 +247,38 @@ def build_video(data, bg_paths, output_file="output.mp4"):
         )
         caption_clips.append(c_clip)
 
-    final = CompositeVideoClip([bg, overlay, title_txt, *caption_clips]).with_audio(final_audio)
+    video_layers = [bg, overlay, title_txt, *caption_clips]
+    total_dur = duration
+
+    # Optional Ending Meme Clip (memes/*.mp4)
+    meme_files = glob.glob("memes/*.mp4")
+    meme_raw = None
+    if meme_files:
+        meme_path = random.choice(meme_files)
+        print("Adding ending meme:", meme_path)
+        meme_raw = VideoFileClip(meme_path)
+        meme_dur = min(meme_raw.duration, 2.8)
+        if meme_dur > 0.2:
+            meme_seg = meme_raw.subclipped(0, meme_dur)
+            meme_vid = meme_seg.without_audio().resized(width=1080)
+            if meme_vid.h > 1920:
+                meme_vid = meme_vid.resized(height=1920)
+            meme_bg = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_duration(meme_dur)
+            video_layers.append(meme_bg.with_start(duration))
+            video_layers.append(meme_vid.with_start(duration).with_position("center"))
+            if meme_seg.audio is not None:
+                audio_layers.append(meme_seg.audio.with_start(duration))
+            total_dur = duration + meme_dur
+
+    final_audio = CompositeAudioClip(audio_layers).with_duration(total_dur)
+    final = CompositeVideoClip(video_layers, size=(1080, 1920)).with_duration(total_dur).with_audio(final_audio)
     final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac")
 
     voice.close()
     if bgm_raw:
         bgm_raw.close()
+    if meme_raw:
+        meme_raw.close()
     for c in opened_clips:
         c.close()
     final.close()
