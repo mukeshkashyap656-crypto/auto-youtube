@@ -280,7 +280,7 @@ def build_video(data, bg_paths, output_file="output.mp4"):
             )
             .with_start(i * cap_dur)
             .with_duration(cap_dur)
-            .with_position(("center", 1220))
+            .with_position(("center", 1380))
         )
         caption_clips.append(c_clip)
 
