@@ -15,13 +15,15 @@ from googleapiclient.http import MediaFileUpload
 from moviepy import (
     AudioFileClip,
     ColorClip,
+    CompositeAudioClip,
     CompositeVideoClip,
     TextClip,
     VideoFileClip,
+    concatenate_audioclips,
     concatenate_videoclips,
 )
 
-# 1. AI SE VIRAL CAR GAMING & SUPERCARS SCRIPT LIKHWANA
+# 1. VIRAL CAR GAMING & SUPERCARS SCRIPT (15+ Fresh Formats)
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
@@ -32,11 +34,21 @@ def generate_script():
         "GTA 5 / Forza Horizon / Car Racing Games Secret Pro Tricks",
         "Most Expensive & Rare Supercars Facts That Will Shock You",
         "How Pro Car Racers Win Last-Second Overtakes in Games",
+        "Braking Point Secret That Cuts Lap Time by 3 Seconds",
+        "Manual Gear vs Automatic Gear: Which Is Actually Faster?",
+        "Top 3 Fastest Cars in Asphalt / Forza / Racing Games",
+        "Why F1 Cars Corner Faster Than Any Supercar",
+        "Nitro & Boost Timing Mistake That Costs You First Place",
+        "Supercar Myth vs Fact That Racing Gamers Believe",
+        "JDM Cars vs European Hypercars (Comment Battle)",
+        "Secret Wet Track & Drift Control Pro Technique",
+        "Insane Top Speed Records & Engine Sound Facts",
     ]
     chosen_theme = random.choice(themes)
+    today_str = time.strftime("%d %B %Y")
 
     prompt = f"""
-    Create a fast-paced 20-second viral Indian Car Gaming & Supercars YouTube Short on: {chosen_theme}.
+    Today is {today_str}. Create a fresh, fast-paced 20-second viral Indian Car Gaming & Supercars YouTube Short on: {chosen_theme}.
     Rules:
     - Start immediately with a shocking 1-line hook (NO "Hello dosto" or intro).
     - End with a short question asking viewers to comment their favorite car.
@@ -45,8 +57,9 @@ def generate_script():
     - "description": 2 lines car gaming description with #cargame #racing #supercars #shorts
     - "tags": list of 5 short tags like ["cargaming", "supercars", "racing", "shorts", "cars"]
     - "search_query": 2 English words for stock car video (pick from: "sports car", "car racing", "supercar drift", "lamborghini")
-    - "voice_text": 3 short, high-energy sentences in natural Hindi (Devanagari script, 35-45 words total)
+    - "voice_text": 3 to 4 short, high-energy sentences in natural Hindi (Devanagari script, 35-45 words total)
     - "screen_text": ONLY 3 to 5 words MAX in Hinglish/English ALL CAPS, NO emojis (example: "BUGATTI VS LAMBORGHINI KING?", "99% RACERS YEH GALTI KARTE", "FASTEST CAR SECRET TRICK")
+    - "captions": list of 4 short punchy Hinglish/English ALL CAPS lines (3 to 4 words each, NO emojis) matching the voiceover order
     """
 
     last_err = None
@@ -70,7 +83,7 @@ def generate_script():
 # 2. TEZ GAMING STYLE HINDI VOICEOVER (ElevenLabs + Edge-TTS Backup)
 async def make_voice(text, filename="car_voice.mp3"):
     eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
-    voice_id = "JBFqnCBsd6RMkjVDRZzb"  # Default premade voice (George)
+    voice_id = "JBFqnCBsd6RMkjVDRZzb"
 
     if eleven_key:
         try:
@@ -103,12 +116,13 @@ async def make_voice(text, filename="car_voice.mp3"):
     await communicate.save(filename)
     print("Voice generated via Edge-TTS!")
 
-# 3. BACKGROUND CAR VIDEO (Sirf clips/car folder ya Pixabay)
-def get_bg_video(query, filename="car_bg.mp4"):
+# 3. MULTIPLE CAR CLIPS (Sirf clips/car ya Pixabay)
+def get_bg_clips(query, filename="car_bg.mp4"):
     local_clips = glob.glob("clips/car/*.mp4")
     if local_clips:
-        chosen = random.choice(local_clips)
-        print("Using own car clip:", chosen)
+        random.shuffle(local_clips)
+        chosen = local_clips[:4]
+        print("Using own car clips:", chosen)
         return chosen
 
     api_key = os.environ["PIXABAY_API_KEY"].strip()
@@ -135,42 +149,113 @@ def get_bg_video(query, filename="car_bg.mp4"):
                 video_data = requests.get(mp4_link, timeout=60).content
                 with open(filename, "wb") as f:
                     f.write(video_data)
-                return filename
-    return None
+                return [filename]
+    return []
 
-# 4. CLEAN VIDEO EDITING
-def build_video(screen_text, bg_path, output_file="car_output.mp4"):
-    audio = AudioFileClip("car_voice.mp3")
-    duration = audio.duration
+# 4. FAST-CUT EDITING + DYNAMIC CAPTIONS + BGM
+def build_video(data, bg_paths, output_file="car_output.mp4"):
+    voice = AudioFileClip("car_voice.mp3")
+    duration = voice.duration
 
-    if bg_path:
-        bg = VideoFileClip(bg_path).without_audio()
-        if bg.duration < duration:
-            loops = int(duration // bg.duration) + 1
-            bg = concatenate_videoclips([bg] * loops)
-        bg = bg.subclipped(0, duration)
-        bg = bg.resized(height=1920)
-        if bg.w < 1080:
-            bg = bg.resized(width=1080)
-        bg = bg.cropped(x_center=bg.w / 2, y_center=bg.h / 2, width=1080, height=1920)
+    music_files = glob.glob("music/*.mp3")
+    bgm_raw = None
+    if music_files:
+        bgm_raw = AudioFileClip(random.choice(music_files))
+        if bgm_raw.duration < duration:
+            loops = int(duration // bgm_raw.duration) + 1
+            bgm = concatenate_audioclips([bgm_raw] * loops)
+        else:
+            bgm = bgm_raw
+        bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.12)
+        final_audio = CompositeAudioClip([voice, bgm])
+    else:
+        final_audio = voice
+
+    opened_clips = []
+    segments = []
+    if bg_paths:
+        target_cut = 4.5
+        current_len = 0.0
+        idx = 0
+        while current_len < duration and idx < 20:
+            clip = VideoFileClip(bg_paths[idx % len(bg_paths)]).without_audio()
+            opened_clips.append(clip)
+            if clip.duration <= 0.2:
+                idx += 1
+                continue
+            cut_len = min(target_cut, clip.duration, duration - current_len)
+            max_start = max(0.0, clip.duration - cut_len)
+            start_t = random.uniform(0.0, max_start) if max_start > 0.5 else 0.0
+
+            seg = clip.subclipped(start_t, start_t + cut_len)
+            seg = seg.resized(height=1920)
+            if seg.w < 1080:
+                seg = seg.resized(width=1080)
+            seg = seg.cropped(x_center=seg.w / 2, y_center=seg.h / 2, width=1080, height=1920)
+            segments.append(seg)
+            current_len += cut_len
+            idx += 1
+
+    if segments:
+        bg = concatenate_videoclips(segments)
+        if bg.duration > duration:
+            bg = bg.subclipped(0, duration)
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(duration)
 
-    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.20).with_duration(duration)
-    txt = TextClip(
-        font="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        text=screen_text.upper(),
-        font_size=54,
-        color="yellow",
-        stroke_color="black",
-        stroke_width=4,
-        method="caption",
-        size=(900, None),
-    ).with_duration(duration).with_position(("center", 240))
+    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.22).with_duration(duration)
 
-    final = CompositeVideoClip([bg, overlay, txt]).with_audio(audio)
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    title_txt = (
+        TextClip(
+            font=font_path,
+            text=data["screen_text"].upper(),
+            font_size=48,
+            color="yellow",
+            stroke_color="black",
+            stroke_width=4,
+            method="caption",
+            size=(920, None),
+            margin=(0, 12),
+        )
+        .with_duration(duration)
+        .with_position(("center", 200))
+    )
+
+    captions = data.get("captions") or [data["screen_text"]]
+    captions = [str(c).strip().upper() for c in captions if str(c).strip()]
+    if not captions:
+        captions = [data["screen_text"].upper()]
+
+    cap_dur = duration / len(captions)
+    caption_clips = []
+    for i, cap_text in enumerate(captions):
+        c_clip = (
+            TextClip(
+                font=font_path,
+                text=cap_text,
+                font_size=56,
+                color="white",
+                stroke_color="black",
+                stroke_width=5,
+                method="caption",
+                size=(920, None),
+                margin=(0, 12),
+            )
+            .with_start(i * cap_dur)
+            .with_duration(cap_dur)
+            .with_position(("center", 1220))
+        )
+        caption_clips.append(c_clip)
+
+    final = CompositeVideoClip([bg, overlay, title_txt, *caption_clips]).with_audio(final_audio)
     final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac")
-    audio.close()
+
+    voice.close()
+    if bgm_raw:
+        bgm_raw.close()
+    for c in opened_clips:
+        c.close()
     final.close()
 
 # 5. CAR GAME CHANNEL PAR PUBLIC AUTO UPLOAD KARNA
@@ -209,6 +294,6 @@ if __name__ == "__main__":
     data = generate_script()
     print("Generated Title:", data["title"])
     asyncio.run(make_voice(data["voice_text"]))
-    bg_path = get_bg_video(data["search_query"])
-    build_video(data["screen_text"], bg_path)
+    bg_paths = get_bg_clips(data["search_query"])
+    build_video(data, bg_paths)
     upload_video("car_output.mp4", data)
