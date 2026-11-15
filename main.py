@@ -103,9 +103,9 @@ async def make_voice(text, filename="voice.mp3"):
     await communicate.save(filename)
     print("Voice generated via Edge-TTS!")
 
-# 3. BACKGROUND VIDEO (Apna clips folder ya Pixabay)
+# 3. BACKGROUND VIDEO (Sirf Free Fire clips folder ya Pixabay)
 def get_bg_video(query, filename="bg.mp4"):
-    local_clips = glob.glob("clips/*.mp4")
+    local_clips = glob.glob("clips/freefire/*.mp4")
     if local_clips:
         chosen = random.choice(local_clips)
         print("Using own gameplay clip:", chosen)
