@@ -23,7 +23,10 @@ from moviepy import (
     concatenate_videoclips,
 )
 
-# 1. VIRAL FREE FIRE SHORTS SCRIPT (15+ Fresh Formats)
+def list_files(pattern):
+    return [os.path.basename(p) for p in sorted(glob.glob(pattern))]
+
+# 1. AI DIRECTOR: TOPIC + MATCHING CLIPS, MEME, SFX & MUSIC CHUNNA
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
@@ -47,8 +50,21 @@ def generate_script():
     chosen_theme = random.choice(themes)
     today_str = time.strftime("%d %B %Y")
 
+    avail_clips = list_files("clips/freefire/*.mp4")
+    avail_memes = list_files("memes/*.mp4")
+    avail_sfx = list_files("sfx/*.mp3")
+    avail_music = list_files("music/*.mp3")
+
     prompt = f"""
-    Today is {today_str}. Create a fresh, fast-paced 20-second viral Indian Free Fire YouTube Short on: {chosen_theme}.
+    Today is {today_str}. You are a viral Indian Free Fire YouTube Shorts editor & scriptwriter.
+    Create a fast-paced 20-second Short on: {chosen_theme}.
+
+    Available files you MUST choose from (look at their filenames to match the topic & mood):
+    - Gameplay clips: {avail_clips if avail_clips else ["NONE"]}
+    - Ending memes: {avail_memes if avail_memes else ["NONE"]}
+    - Hook SFX: {avail_sfx if avail_sfx else ["NONE"]}
+    - Background music: {avail_music if avail_music else ["NONE"]}
+
     Rules:
     - Start immediately with a shocking 1-line hook (NO "Hello dosto" or intro).
     - End with a short question asking viewers to comment their choice/opinion.
@@ -56,10 +72,14 @@ def generate_script():
     - "title": Catchy Hinglish title under 60 chars with #shorts #freefire
     - "description": 2 lines gaming description with #freefire #freefireindia #freefireshorts #shorts
     - "tags": list of 5 short tags like ["freefire", "freefireshorts", "headshot", "gaming", "shorts"]
-    - "search_query": 2 English words for background video (pick from: "gaming neon", "esports gamer", "cyberpunk dark", "abstract laser")
+    - "search_query": 2 English words for stock fallback video (pick from: "gaming neon", "esports gamer", "cyberpunk dark", "abstract laser")
     - "voice_text": 3 to 4 short, high-energy sentences in natural Hindi (Devanagari script, 35-45 words total)
-    - "screen_text": ONLY 3 to 5 words MAX in Hinglish/English ALL CAPS, NO emojis (example: "99% PLAYERS YEH GALTI KARTE", "HEADSHOT SECRET TRICK", "MP40 VS M1887 KING?")
+    - "screen_text": ONLY 3 to 5 words MAX in Hinglish/English ALL CAPS, NO emojis
     - "captions": list of 4 short punchy Hinglish/English ALL CAPS lines (3 to 4 words each, NO emojis) matching the voiceover order
+    - "chosen_clips": list of up to 4 exact filenames from Gameplay clips that BEST fit this topic (or [] if NONE)
+    - "chosen_meme": 1 exact filename from Ending memes that BEST matches this script's ending mood/joke (or "" if NONE)
+    - "chosen_sfx": 1 exact filename from Hook SFX that BEST fits (or "" if NONE)
+    - "chosen_music": 1 exact filename from Background music that BEST fits the vibe (or "" if NONE)
     """
 
     last_err = None
@@ -80,10 +100,10 @@ def generate_script():
             time.sleep(12)
     raise last_err
 
-# 2. TEZ GAMING STYLE HINDI VOICEOVER (ElevenLabs + Edge-TTS Backup)
+# 2. VIRAL SHORTS HINDI VOICEOVER (ElevenLabs "Adam" + Edge-TTS Backup)
 async def make_voice(text, filename="voice.mp3"):
     eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
-    voice_id = "JBFqnCBsd6RMkjVDRZzb"
+    voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam (Most popular viral Shorts voice)
 
     if eleven_key:
         try:
@@ -105,7 +125,7 @@ async def make_voice(text, filename="voice.mp3"):
             if res.status_code == 200:
                 with open(filename, "wb") as f:
                     f.write(res.content)
-                print("Voice generated via ElevenLabs!")
+                print("Voice generated via ElevenLabs (Adam)!")
                 return
             else:
                 print(f"ElevenLabs failed ({res.status_code}): {res.text[:200]} -> Using edge-tts")
@@ -116,16 +136,26 @@ async def make_voice(text, filename="voice.mp3"):
     await communicate.save(filename)
     print("Voice generated via Edge-TTS!")
 
-# 3. MULTIPLE BACKGROUND CLIPS (Sirf clips/freefire ya Pixabay)
-def get_bg_clips(query, filename="bg.mp4"):
-    local_clips = glob.glob("clips/freefire/*.mp4")
-    if local_clips:
-        random.shuffle(local_clips)
-        chosen = local_clips[:4]
-        print("Using own Free Fire clips:", chosen)
-        return chosen
+# 3. SMART CLIPS SELECTION (AI Chosen + Random Fill + Pixabay Fallback)
+def get_bg_clips(data, filename="bg.mp4"):
+    all_local = glob.glob("clips/freefire/*.mp4")
+    if all_local:
+        chosen_paths = []
+        raw_chosen = data.get("chosen_clips", [])
+        if isinstance(raw_chosen, list):
+            for name in raw_chosen:
+                candidate = os.path.join("clips", "freefire", os.path.basename(str(name)))
+                if os.path.isfile(candidate) and candidate not in chosen_paths:
+                    chosen_paths.append(candidate)
+
+        remaining = [p for p in all_local if p not in chosen_paths]
+        random.shuffle(remaining)
+        chosen_paths.extend(remaining[: max(0, 4 - len(chosen_paths))])
+        print("Selected Free Fire clips:", chosen_paths)
+        return chosen_paths[:4]
 
     api_key = os.environ["PIXABAY_API_KEY"].strip()
+    query = data.get("search_query", "gaming")
     res = requests.get(
         "https://pixabay.com/api/videos/",
         params={"key": api_key, "q": query, "per_page": 5},
@@ -152,19 +182,29 @@ def get_bg_clips(query, filename="bg.mp4"):
                 return [filename]
     return []
 
-# 4. FAST-CUT EDITING + CAPTIONS + BGM + SFX + ENDING MEME
+def pick_smart_file(folder, ai_choice, pattern):
+    all_files = glob.glob(pattern)
+    if not all_files:
+        return None
+    if isinstance(ai_choice, str) and ai_choice.strip():
+        candidate = os.path.join(folder, os.path.basename(ai_choice.strip()))
+        if os.path.isfile(candidate):
+            return candidate
+    return random.choice(all_files)
+
+# 4. FAST-CUT EDITING + CAPTIONS + SMART BGM + SMART SFX + SMART ENDING MEME
 def build_video(data, bg_paths, output_file="output.mp4"):
     voice = AudioFileClip("voice.mp3")
     duration = voice.duration
 
-    meme_files = glob.glob("memes/*.mp4")
-    sfx_files = glob.glob("sfx/*.mp3")
+    meme_path = pick_smart_file("memes", data.get("chosen_meme"), "memes/*.mp4")
+    sfx_path = pick_smart_file("sfx", data.get("chosen_sfx"), "sfx/*.mp3")
+    music_path = pick_smart_file("music", data.get("chosen_music"), "music/*.mp3")
 
     meme_raw = None
     meme_dur = 0.0
-    if meme_files:
-        meme_path = random.choice(meme_files)
-        print("Adding ending meme:", meme_path)
+    if meme_path:
+        print("Selected ending meme:", meme_path)
         meme_raw = VideoFileClip(meme_path)
         if meme_raw.duration > 0.2:
             meme_dur = min(meme_raw.duration, 2.8)
@@ -174,9 +214,8 @@ def build_video(data, bg_paths, output_file="output.mp4"):
 
     sfx_raw = None
     sfx_outro_dur = 0.0
-    if sfx_files:
-        sfx_path = random.choice(sfx_files)
-        print("Adding SFX:", sfx_path)
+    if sfx_path:
+        print("Selected SFX:", sfx_path)
         sfx_raw = AudioFileClip(sfx_path)
         if sfx_raw.duration <= 0.1:
             sfx_raw.close()
@@ -187,10 +226,10 @@ def build_video(data, bg_paths, output_file="output.mp4"):
     bg_dur = duration + sfx_outro_dur
 
     audio_layers = [voice]
-    music_files = glob.glob("music/*.mp3")
     bgm_raw = None
-    if music_files:
-        bgm_raw = AudioFileClip(random.choice(music_files))
+    if music_path:
+        print("Selected music:", music_path)
+        bgm_raw = AudioFileClip(music_path)
         if bgm_raw.duration < duration:
             loops = int(duration // bgm_raw.duration) + 1
             bgm = concatenate_audioclips([bgm_raw] * loops)
@@ -348,6 +387,6 @@ if __name__ == "__main__":
     data = generate_script()
     print("Generated Title:", data["title"])
     asyncio.run(make_voice(data["voice_text"]))
-    bg_paths = get_bg_clips(data["search_query"])
+    bg_paths = get_bg_clips(data)
     build_video(data, bg_paths)
     upload_video("output.mp4", data)
