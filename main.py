@@ -67,10 +67,41 @@ def generate_script():
             time.sleep(12)
     raise last_err
 
-# 2. TEZ GAMING STYLE HINDI VOICEOVER
+# 2. TEZ GAMING STYLE HINDI VOICEOVER (ElevenLabs + Edge-TTS Backup)
 async def make_voice(text, filename="voice.mp3"):
+    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    voice_id = "JBFqnCBsd6RMkjVDRZzb"  # Default premade voice (George)
+
+    if eleven_key:
+        try:
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128"
+            headers = {
+                "xi-api-key": eleven_key,
+                "Content-Type": "application/json",
+            }
+            payload = {
+                "text": text,
+                "model_id": "eleven_flash_v2_5",
+                "voice_settings": {
+                    "stability": 0.45,
+                    "similarity_boost": 0.75,
+                    "speed": 1.1,
+                },
+            }
+            res = requests.post(url, headers=headers, json=payload, timeout=30)
+            if res.status_code == 200:
+                with open(filename, "wb") as f:
+                    f.write(res.content)
+                print("Voice generated via ElevenLabs!")
+                return
+            else:
+                print(f"ElevenLabs failed ({res.status_code}): {res.text[:200]} -> Using edge-tts")
+        except Exception as e:
+            print(f"ElevenLabs error: {e} -> Using edge-tts")
+
     communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+10%")
     await communicate.save(filename)
+    print("Voice generated via Edge-TTS!")
 
 # 3. BACKGROUND VIDEO (Apna clips folder ya Pixabay)
 def get_bg_video(query, filename="bg.mp4"):
