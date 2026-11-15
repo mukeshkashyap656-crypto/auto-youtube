@@ -24,7 +24,9 @@ from moviepy import (
     CompositeVideoClip,
     ImageClip,
     TextClip,
+    VideoFileClip,
     concatenate_audioclips,
+    concatenate_videoclips,
     vfx,
 )
 
@@ -170,7 +172,48 @@ def generate_katha():
     raise last_err
 
 
-# 2. CLOUDFLARE SE 6 FAST CARTOON SCENES BANANA
+# 2. PIXABAY SE AUTOMATIC MOVING SPIRITUAL/SKY BACKGROUND LENA
+def fetch_pixabay_bg_video(filename="katha_bg_motion.mp4"):
+    # First check if user put any local clips in katha_clips/
+    local_clips = []
+    for ext in ("*.mp4", "*.mov", "*.mkv"):
+        local_clips.extend(glob.glob(os.path.join("katha_clips", ext)))
+    if local_clips:
+        chosen = random.choice(local_clips)
+        print("Using local katha clip:", chosen)
+        return chosen
+
+    pixabay_key = os.environ.get("PIXABAY_API_KEY", "").strip()
+    if not pixabay_key:
+        print("PIXABAY_API_KEY not set in workflow env, using scene backdrop.")
+        return None
+
+    queries = ["golden clouds sky", "temple candle diya", "sunrise clouds nature", "golden particles dark"]
+    random.shuffle(queries)
+    for q in queries:
+        try:
+            res = requests.get(
+                "https://pixabay.com/api/videos/",
+                params={"key": pixabay_key, "q": q, "per_page": 8},
+                timeout=25,
+            ).json()
+            hits = res.get("hits", [])
+            if hits:
+                videos = random.choice(hits).get("videos", {})
+                for quality in ("medium", "small", "tiny"):
+                    url = videos.get(quality, {}).get("url")
+                    if url:
+                        print(f"Downloaded Pixabay moving backdrop ({q})")
+                        data = requests.get(url, timeout=60).content
+                        with open(filename, "wb") as f:
+                            f.write(data)
+                        return filename
+        except Exception as e:
+            print(f"Pixabay query '{q}' skipped:", e)
+    return None
+
+
+# 3. CLOUDFLARE SE 6 CARTOON SCENES BANANA
 def make_cartoon_images(scene_prompts):
     cf_account = os.environ["CF_ACCOUNT_ID"].strip()
     cf_token = os.environ["CF_API_TOKEN"].strip()
@@ -215,7 +258,7 @@ def make_cartoon_images(scene_prompts):
     return img_paths
 
 
-# 3. NATURAL HINDI STORYTELLING VOICEOVER
+# 4. NATURAL HINDI VOICEOVER
 async def make_voice(text, filename="katha_voice.mp3"):
     use_eleven = os.environ.get("USE_ELEVENLABS_KATHA", "false").lower() == "true"
     eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
@@ -247,22 +290,16 @@ async def make_voice(text, filename="katha_voice.mp3"):
     print("Voice generated via Indian Edge-TTS (+8%)!")
 
 
-# 4. ANIMATED FLOATING GOLDEN SPARKS FILTER
+# 5. FLOATING GOLDEN DIVINE SPARKS
 def make_sparkle_transform(seed=42):
     rng = random.Random(seed)
     r = 5
     yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
-    glow_mask = np.maximum(0.0, 1.0 - np.sqrt(xx * xx + yy * yy) / (r + 0.5))
-    glow_mask = glow_mask[:, :, None]  # shape (11, 11, 1)
+    glow_mask = np.maximum(0.0, 1.0 - np.sqrt(xx * xx + yy * yy) / (r + 0.5))[:, :, None]
     spark_rgb = np.array([[[255.0, 210.0, 80.0]]])
 
     sparks = [
-        (
-            rng.uniform(0, 1060),   # x0
-            rng.uniform(0, 1060),   # y0
-            rng.uniform(45, 115),   # upward speed
-            rng.uniform(0, 6.28),   # phase
-        )
+        (rng.uniform(0, 1060), rng.uniform(0, 1060), rng.uniform(45, 115), rng.uniform(0, 6.28))
         for _ in range(22)
     ]
 
@@ -283,14 +320,15 @@ def make_sparkle_transform(seed=42):
     return apply_sparks
 
 
-# 5. MULTI-DIRECTION MOTION + CROSSFADE + GOLDEN SPARKS + CAPTIONS
-def build_video(data, img_paths, output_file="katha_output.mp4"):
+# 6. PIXABAY MOVING BACKDROP + ANIMATED SCENES + SPARKS + CAPTIONS
+def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.mp4"):
     font_path = get_font()
     voice = AudioFileClip("katha_voice.mp3").with_volume_scaled(1.25)
     duration = voice.duration
 
     audio_layers = [voice]
     opened_audio = [voice]
+    opened_videos = []
 
     music_files = []
     for folder in ("katha_music", "music", "sfx"):
@@ -322,17 +360,38 @@ def build_video(data, img_paths, output_file="katha_output.mp4"):
     scene_dur = duration / n_scenes
     fade_t = min(0.35, scene_dur * 0.25)
 
-    for i, img_path in enumerate(img_paths):
-        start_t = i * scene_dur
-        seg_d = scene_dur + (fade_t if i < n_scenes - 1 else 0.0)
-        bg_full = ImageClip(img_path).resized(height=1920)
-        bg_full = bg_full.cropped(x_center=bg_full.w / 2, y_center=bg_full.h / 2, width=1080, height=1920)
-        bg_layer = bg_full.with_duration(seg_d).with_start(start_t)
-        if i > 0:
-            bg_layer = bg_layer.with_effects([vfx.CrossFadeIn(fade_t)])
-        video_layers.append(bg_layer)
+    # Moving Pixabay Video Backdrop (if available), else blurred scene backdrop
+    bg_loaded = False
+    if bg_video_path and os.path.exists(bg_video_path):
+        try:
+            raw_bg = VideoFileClip(bg_video_path).without_audio()
+            opened_videos.append(raw_bg)
+            raw_bg = raw_bg.resized(height=1920)
+            if raw_bg.w < 1080:
+                raw_bg = raw_bg.resized(width=1080)
+            raw_bg = raw_bg.cropped(x_center=raw_bg.w / 2, y_center=raw_bg.h / 2, width=1080, height=1920)
+            if raw_bg.duration < duration:
+                loops = int(duration // max(raw_bg.duration, 0.5)) + 1
+                bg_motion = concatenate_videoclips([raw_bg] * loops).subclipped(0, duration)
+            else:
+                bg_motion = raw_bg.subclipped(0, duration)
+            video_layers.append(bg_motion)
+            bg_loaded = True
+        except Exception as e:
+            print("Pixabay bg video fallback:", e)
 
-    dark_veil = ColorClip(size=(1080, 1920), color=(14, 8, 26)).with_opacity(0.68).with_duration(duration)
+    if not bg_loaded:
+        for i, img_path in enumerate(img_paths):
+            start_t = i * scene_dur
+            seg_d = scene_dur + (fade_t if i < n_scenes - 1 else 0.0)
+            bg_full = ImageClip(img_path).resized(height=1920)
+            bg_full = bg_full.cropped(x_center=bg_full.w / 2, y_center=bg_full.h / 2, width=1080, height=1920)
+            bg_layer = bg_full.with_duration(seg_d).with_start(start_t)
+            if i > 0:
+                bg_layer = bg_layer.with_effects([vfx.CrossFadeIn(fade_t)])
+            video_layers.append(bg_layer)
+
+    dark_veil = ColorClip(size=(1080, 1920), color=(14, 8, 26)).with_opacity(0.55).with_duration(duration)
     video_layers.append(dark_veil)
 
     gold_frame = ColorClip(size=(1080, 1104), color=(217, 119, 6)).with_duration(duration).with_position(("center", 348))
@@ -347,16 +406,12 @@ def build_video(data, img_paths, output_file="katha_output.mp4"):
         motion_type = i % 4
 
         if motion_type == 0:
-            # Zoom-In
             moving = base_img.resized(lambda t, d=seg_d: 0.88 + 0.12 * (t / max(d, 0.1))).with_position("center")
         elif motion_type == 1:
-            # Smooth Pan Left -> Right
             moving = base_img.with_position(lambda t, d=seg_d: (int(-160 * (1.0 - t / max(d, 0.1))), -80))
         elif motion_type == 2:
-            # Zoom-Out
             moving = base_img.resized(lambda t, d=seg_d: 1.0 - 0.12 * (t / max(d, 0.1))).with_position("center")
         else:
-            # Smooth Pan Right -> Left
             moving = base_img.with_position(lambda t, d=seg_d: (int(-160 * (t / max(d, 0.1))), -80))
 
         framed = CompositeVideoClip([moving], size=(1080, 1080)).with_duration(seg_d)
@@ -427,47 +482,16 @@ def build_video(data, img_paths, output_file="katha_output.mp4"):
 
     for a in opened_audio:
         a.close()
+    for v in opened_videos:
+        v.close()
     final.close()
 
 
-# 6. UPLOAD TO KATHA CHANNEL
+# 7. UPLOAD TO KATHA CHANNEL
 def upload_video(video_file, data):
     creds = Credentials(
         token=None,
         refresh_token=os.environ["YT_REFRESH_TOKEN_KATHA"].strip(),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=os.environ["YT_CLIENT_ID"].strip(),
-        client_secret=os.environ["YT_CLIENT_SECRET"].strip(),
-        scopes=["https://www.googleapis.com/auth/youtube.upload"],
-    )
-    creds.refresh(Request())
-
-    youtube = build("youtube", "v3", credentials=creds)
-    request = youtube.videos().insert(
-        part="snippet,status",
-        body={
-            "snippet": {
-                "title": data["title"][:95],
-                "description": data["description"],
-                "tags": data.get("tags", ["katha", "bhakti", "shorts"]),
-                "categoryId": "24",
-            },
-            "status": {
-                "privacyStatus": "public",
-                "selfDeclaredMadeForKids": False,
-            },
-        },
-        media_body=MediaFileUpload(video_file, chunksize=-1, resumable=True),
-    )
-    response = request.execute()
-    print("SUCCESS! Katha Video Uploaded. ID:", response["id"])
-
-
-if __name__ == "__main__":
-    data = generate_katha()
-    print("Generated Title:", data["title"])
-    img_paths = make_cartoon_images(data["scene_prompts"])
-    full_voice = " ".join(s["voice"] for s in data["segments"])
-    asyncio.run(make_voice(full_voice))
-    build_video(data, img_paths)
-    upload_video("katha_output.mp4", data)
+      
