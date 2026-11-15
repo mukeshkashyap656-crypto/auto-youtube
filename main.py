@@ -152,10 +152,39 @@ def get_bg_clips(query, filename="bg.mp4"):
                 return [filename]
     return []
 
-# 4. FAST-CUT EDITING + CAPTIONS + BGM + ENDING MEME
+# 4. FAST-CUT EDITING + CAPTIONS + BGM + SFX + ENDING MEME
 def build_video(data, bg_paths, output_file="output.mp4"):
     voice = AudioFileClip("voice.mp3")
     duration = voice.duration
+
+    meme_files = glob.glob("memes/*.mp4")
+    sfx_files = glob.glob("sfx/*.mp3")
+
+    meme_raw = None
+    meme_dur = 0.0
+    if meme_files:
+        meme_path = random.choice(meme_files)
+        print("Adding ending meme:", meme_path)
+        meme_raw = VideoFileClip(meme_path)
+        if meme_raw.duration > 0.2:
+            meme_dur = min(meme_raw.duration, 2.8)
+        else:
+            meme_raw.close()
+            meme_raw = None
+
+    sfx_raw = None
+    sfx_outro_dur = 0.0
+    if sfx_files:
+        sfx_path = random.choice(sfx_files)
+        print("Adding SFX:", sfx_path)
+        sfx_raw = AudioFileClip(sfx_path)
+        if sfx_raw.duration <= 0.1:
+            sfx_raw.close()
+            sfx_raw = None
+        elif meme_dur == 0.0:
+            sfx_outro_dur = min(sfx_raw.duration, 2.5)
+
+    bg_dur = duration + sfx_outro_dur
 
     audio_layers = [voice]
     music_files = glob.glob("music/*.mp3")
@@ -170,19 +199,27 @@ def build_video(data, bg_paths, output_file="output.mp4"):
         bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.12)
         audio_layers.append(bgm)
 
+    if sfx_raw:
+        if meme_dur > 0.0:
+            sfx_clip = sfx_raw.subclipped(0, min(sfx_raw.duration, 1.2)).with_volume_scaled(0.35).with_start(0)
+            audio_layers.append(sfx_clip)
+        elif sfx_outro_dur > 0.0:
+            sfx_clip = sfx_raw.subclipped(0, sfx_outro_dur).with_volume_scaled(0.85).with_start(duration)
+            audio_layers.append(sfx_clip)
+
     opened_clips = []
     segments = []
     if bg_paths:
         target_cut = 4.5
         current_len = 0.0
         idx = 0
-        while current_len < duration and idx < 20:
+        while current_len < bg_dur and idx < 25:
             clip = VideoFileClip(bg_paths[idx % len(bg_paths)]).without_audio()
             opened_clips.append(clip)
             if clip.duration <= 0.2:
                 idx += 1
                 continue
-            cut_len = min(target_cut, clip.duration, duration - current_len)
+            cut_len = min(target_cut, clip.duration, bg_dur - current_len)
             max_start = max(0.0, clip.duration - cut_len)
             start_t = random.uniform(0.0, max_start) if max_start > 0.5 else 0.0
 
@@ -197,12 +234,12 @@ def build_video(data, bg_paths, output_file="output.mp4"):
 
     if segments:
         bg = concatenate_videoclips(segments)
-        if bg.duration > duration:
-            bg = bg.subclipped(0, duration)
+        if bg.duration > bg_dur:
+            bg = bg.subclipped(0, bg_dur)
     else:
-        bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(duration)
+        bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(bg_dur)
 
-    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.22).with_duration(duration)
+    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.22).with_duration(bg_dur)
 
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     title_txt = (
@@ -217,7 +254,7 @@ def build_video(data, bg_paths, output_file="output.mp4"):
             size=(920, None),
             margin=(0, 12),
         )
-        .with_duration(duration)
+        .with_duration(bg_dur)
         .with_position(("center", 200))
     )
 
@@ -248,28 +285,18 @@ def build_video(data, bg_paths, output_file="output.mp4"):
         caption_clips.append(c_clip)
 
     video_layers = [bg, overlay, title_txt, *caption_clips]
-    total_dur = duration
+    if meme_raw and meme_dur > 0.0:
+        meme_seg = meme_raw.subclipped(0, meme_dur)
+        meme_vid = meme_seg.without_audio().resized(width=1080)
+        if meme_vid.h > 1920:
+            meme_vid = meme_vid.resized(height=1920)
+        meme_bg = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_duration(meme_dur)
+        video_layers.append(meme_bg.with_start(duration))
+        video_layers.append(meme_vid.with_start(duration).with_position("center"))
+        if meme_seg.audio is not None:
+            audio_layers.append(meme_seg.audio.with_start(duration))
 
-    # Optional Ending Meme Clip (memes/*.mp4)
-    meme_files = glob.glob("memes/*.mp4")
-    meme_raw = None
-    if meme_files:
-        meme_path = random.choice(meme_files)
-        print("Adding ending meme:", meme_path)
-        meme_raw = VideoFileClip(meme_path)
-        meme_dur = min(meme_raw.duration, 2.8)
-        if meme_dur > 0.2:
-            meme_seg = meme_raw.subclipped(0, meme_dur)
-            meme_vid = meme_seg.without_audio().resized(width=1080)
-            if meme_vid.h > 1920:
-                meme_vid = meme_vid.resized(height=1920)
-            meme_bg = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_duration(meme_dur)
-            video_layers.append(meme_bg.with_start(duration))
-            video_layers.append(meme_vid.with_start(duration).with_position("center"))
-            if meme_seg.audio is not None:
-                audio_layers.append(meme_seg.audio.with_start(duration))
-            total_dur = duration + meme_dur
-
+    total_dur = duration + meme_dur + sfx_outro_dur
     final_audio = CompositeAudioClip(audio_layers).with_duration(total_dur)
     final = CompositeVideoClip(video_layers, size=(1080, 1920)).with_duration(total_dur).with_audio(final_audio)
     final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac")
@@ -277,6 +304,8 @@ def build_video(data, bg_paths, output_file="output.mp4"):
     voice.close()
     if bgm_raw:
         bgm_raw.close()
+    if sfx_raw:
+        sfx_raw.close()
     if meme_raw:
         meme_raw.close()
     for c in opened_clips:
