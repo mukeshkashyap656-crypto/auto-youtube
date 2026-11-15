@@ -30,7 +30,6 @@ FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
 def get_gaming_font():
-    # Check if user uploaded any custom .ttf font in fonts/ or root
     for pattern in ("fonts/*.ttf", "*.ttf"):
         found = glob.glob(pattern)
         if found:
@@ -54,39 +53,38 @@ def get_gaming_font():
     return FALLBACK_FONT
 
 
-# 1. VIRAL SPECIFIC CARS & GAMING CHALLENGES
+# 1. ASPHALT / SUPERCAR RACING & NITRO TRICKS (Matches Your Gameplay Clips 100%)
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
     themes = [
-        "Supra MK4 vs Nissan GTR R35: Kaun Hai Asli JDM King?",
-        "GTA 6 vs GTA 5 Car Crash Physics: Kaun Zyada Real Hai?",
-        "Bugatti Tourbillon vs Koenigsegg Jesko 500 KMPH Top Speed Battle",
-        "Mahindra Thar Roxx vs Lamborghini Urus Offroad Ramp Challenge",
-        "Kya 50 Crore ki Bugatti 1000 Speed Breakers Paar Kar Payegi?",
-        "Porsche 911 GT3 RS vs Lamborghini Revuelto Track Corner Test",
-        "300 KMPH par Car ke Brake Fail Ho Jaye Toh Game Mein Kya Hoga?",
-        "Scorpio-N vs Fortuner vs Thar Mega Ramp Jump Test in Games",
-        "Police Chase Se Bachne ki 1000 IQ Secret Car Trick",
-        "BeamNG Drive Real Life Car Crash Test vs Racing Games",
-        "1 Crore vs 50 Crore Supercar Impossible Bridge Jump",
-        "99% Gamers Car Jump & Drift Mein Yeh Galti Karte Hain",
+        "300 KMPH Nitro Boost vs Normal Speed: Kaun Jeetega Race?",
+        "Asphalt Racing ka Sabse Khatarnak Drift aur Knockdown Trick!",
+        "Red Supercar vs Blue Sports Car: Last Second Photo Finish!",
+        "99% Gamers Nitro Timing Mein Yeh Badi Galti Karte Hain!",
+        "Rivals ko Ek Perfect 360 Spin Mein Kaise Knock Out Karein?",
+        "Ramp Jump + 360 Barrel Roll: Kaise Karein Perfect Nitro Landing?",
+        "Lamborghini vs Bugatti vs Porsche: Kaun Hai Track King?",
+        "Sharp Turn par Speed Bina Kam Kiye Drift Kaise Maarein?",
+        "Blue Nitro vs Shockwave Nitro: Kaunsa Hai Sabse Tez?",
+        "Asphalt Legends Pro Racers ki 3 Secret Speed Tricks!",
     ]
     chosen_theme = random.choice(themes)
     today_str = time.strftime("%d %B %Y")
 
     prompt = f"""
-    Today is {today_str}. Create a super fast-paced, viral 17-second Indian Car Gaming YouTube Short on: "{chosen_theme}".
+    Today is {today_str}. Create a super fast-paced, viral 17-second Indian Car Racing YouTube Short matching high-speed sports car & nitro racing gameplay on: "{chosen_theme}".
     Rules:
     - Start immediately with a shocking 2-second question/challenge hook (NO "Hello doston", NO intro).
+    - Do NOT mention Thar, Fortuner, Scorpio, or offroad SUVs — keep it strictly about fast supercars, sports cars, nitro, drift, and racing!
     - Keep total voiceover 32-40 words in natural energetic Hindi (Devanagari script).
-    - Last segment MUST trigger comments (e.g., "Comment mein apni dream car likho!").
+    - Last segment MUST trigger comments (e.g., "Comment mein apni dream supercar likho!").
     - IMPORTANT: "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
     - Return ONLY valid JSON with these exact keys:
     {{
       "title": "Catchy Hinglish title under 58 chars with #shorts #cargaming",
-      "description": "2 line gaming description with #cargaming #gta6 #supercars #shorts",
-      "tags": ["cargaming", "gta6", "supercars", "supra", "shorts"],
+      "description": "2 line racing description with #cargaming #asphalt #supercars #shorts",
+      "tags": ["cargaming", "asphalt", "supercars", "racing", "shorts"],
       "search_query": "2 English words from: sports car, car racing, supercar drift, lamborghini",
       "screen_text": "3 TO 5 WORDS CAPS HOOK",
       "segments": [
@@ -195,7 +193,7 @@ def clean_ascii_caps(txt):
     return cleaned or "CAR GAMING"
 
 
-# 4. FAST-CUT 1.8s EDITING + ANTON FONT + SFX/BGM + MEME REACTION
+# 4. FAST-CUT 1.8s EDITING + AUTO MENU/LOADING SKIP + ANTON FONT + SFX/BGM + MEME
 def build_video(data, bg_paths, output_file="car_output.mp4"):
     font_path = get_gaming_font()
     voice = AudioFileClip("car_voice.mp3").with_volume_scaled(1.25)
@@ -204,7 +202,6 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
     opened_audio = [voice]
     audio_tracks = [voice]
 
-    # Smart BGM & Impact SFX separation from sfx/ and music/
     all_audio_files = []
     for folder in ("sfx", "music"):
         for ext in ("*.mp3", "*.wav", "*.m4a"):
@@ -244,7 +241,7 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
         except Exception:
             pass
 
-    # Fast 1.8s cuts at 30fps
+    # Fast 1.8s cuts from middle action part (skips dark 3-2-1 start & ending menu/loading screens)
     opened_clips = []
     segments_v = []
     if bg_paths:
@@ -258,8 +255,11 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
                 idx += 1
                 continue
             cut_len = min(target_cut, clip.duration, duration - current_len)
-            max_start = max(0.0, clip.duration - cut_len)
-            start_t = random.uniform(0.0, max_start) if max_start > 0.3 else 0.0
+            safe_start = min(3.0, clip.duration * 0.18)
+            safe_end = min(clip.duration, max(safe_start + cut_len, clip.duration * 0.65))
+            max_start = max(0.0, safe_end - cut_len)
+            min_start = min(safe_start, max_start)
+            start_t = random.uniform(min_start, max_start) if max_start > min_start else 0.0
 
             seg = clip.subclipped(start_t, start_t + cut_len)
             seg = seg.resized(height=1920)
@@ -328,12 +328,12 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
             )
             .with_start(cur_t)
             .with_duration(seg_dur)
-            .with_position(("center", 1240))
+            .with_position(("center", 1280))
         )
         caption_clips.append(c_clip)
         cur_t += seg_dur
 
-    # Optional Meme Reaction Overlay in last 1.4s from memes/
+    # Meme Reaction Overlay (smaller & higher so it stays clean above captions)
     meme_overlays = []
     meme_files = []
     for ext in ("*.mp4", "*.png", "*.jpg", "*.jpeg"):
@@ -348,12 +348,12 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
                 m_vid = VideoFileClip(chosen_meme)
                 opened_clips.append(m_vid)
                 m_dur = min(meme_dur, m_vid.duration)
-                m_sub = m_vid.subclipped(0, m_dur).resized(width=460).with_start(meme_start).with_position(("center", 420))
+                m_sub = m_vid.subclipped(0, m_dur).resized(width=380).with_start(meme_start).with_position(("center", 360))
                 meme_overlays.append(m_sub)
                 if m_vid.audio is not None:
                     audio_tracks.append(m_vid.audio.subclipped(0, m_dur).with_start(meme_start).with_volume_scaled(0.65))
             else:
-                m_img = ImageClip(chosen_meme).resized(width=460).with_duration(meme_dur).with_start(meme_start).with_position(("center", 420))
+                m_img = ImageClip(chosen_meme).resized(width=380).with_duration(meme_dur).with_start(meme_start).with_position(("center", 360))
                 meme_overlays.append(m_img)
             print("Added meme reaction:", chosen_meme)
         except Exception as e:
@@ -389,7 +389,7 @@ def upload_video(video_file, data):
             "snippet": {
                 "title": data["title"][:95],
                 "description": data["description"],
-                "tags": data.get("tags", ["cargaming", "supercars", "shorts"]),
+                "tags": data.get("tags", ["cargaming", "asphalt", "supercars", "shorts"]),
                 "categoryId": "20",
             },
             "status": {
