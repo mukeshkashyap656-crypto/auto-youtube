@@ -31,4 +31,5 @@ jobs:
           YT_REFRESH_TOKEN_CAR: ${{ secrets.YT_REFRESH_TOKEN_CAR }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
         run: python car_game.py
