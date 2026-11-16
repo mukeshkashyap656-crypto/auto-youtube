@@ -3,11 +3,12 @@ name: Auto YouTube Shorts
 on:
   workflow_dispatch:
   schedule:
-    - cron: '30 12 * * *'
+    - cron: '37 12 * * *' # Sham 6:07 PM IST (odd minute, fast start)
 
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -15,6 +16,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install system packages
         run: |
