@@ -61,7 +61,7 @@ def clean_ascii_caps(txt):
 # 1. INDIA TIME (IST) KE HISAAB SE DIN KE BHAGWAN KI KATHA
 def get_today_bhagwan_topic():
     ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
-    day_idx = ist_now.weekday()  # 0=Monday ... 6=Sunday
+    day_idx = ist_now.weekday()
 
     day_topics = {
         0: ("Somwar Special - Bhagwan Shiv", [
@@ -174,7 +174,6 @@ def generate_katha():
 
 # 2. PIXABAY SE AUTOMATIC MOVING SPIRITUAL/SKY BACKGROUND LENA
 def fetch_pixabay_bg_video(filename="katha_bg_motion.mp4"):
-    # First check if user put any local clips in katha_clips/
     local_clips = []
     for ext in ("*.mp4", "*.mov", "*.mkv"):
         local_clips.extend(glob.glob(os.path.join("katha_clips", ext)))
@@ -360,7 +359,6 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
     scene_dur = duration / n_scenes
     fade_t = min(0.35, scene_dur * 0.25)
 
-    # Moving Pixabay Video Backdrop (if available), else blurred scene backdrop
     bg_loaded = False
     if bg_video_path and os.path.exists(bg_video_path):
         try:
@@ -421,7 +419,6 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
             framed = framed.with_effects([vfx.CrossFadeIn(fade_t)])
         video_layers.append(framed)
 
-    # Top Saffron Hook Banner
     banner_bg = (
         ColorClip(size=(960, 128), color=(180, 83, 9))
         .with_opacity(0.92)
@@ -447,7 +444,6 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
     )
     video_layers.append(title_txt)
 
-    # Synced Captions
     seg_list = data["segments"]
     total_chars = max(1, sum(len(s["voice"]) for s in seg_list))
     cur_t = 0.0
@@ -494,4 +490,10 @@ def upload_video(video_file, data):
         refresh_token=os.environ["YT_REFRESH_TOKEN_KATHA"].strip(),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=os.environ["YT_CLIENT_ID"].strip(),
-      
+        client_secret=os.environ["YT_CLIENT_SECRET"].strip(),
+        scopes=["https://www.googleapis.com/auth/youtube.upload"],
+    )
+    creds.refresh(Request())
+
+    youtube = build("youtube", "v3", credentials=creds)
+    
