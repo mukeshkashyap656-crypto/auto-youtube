@@ -1,13 +1,5 @@
-import asyncio
-import base64
+import asyncio, base64, glob, json, math, os, random, re, time
 from datetime import datetime, timedelta, timezone
-import glob
-import json
-import math
-import os
-import random
-import re
-import time
 import numpy as np
 import requests
 import edge_tts
@@ -18,21 +10,13 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from moviepy import (
-    AudioFileClip,
-    ColorClip,
-    CompositeAudioClip,
-    CompositeVideoClip,
-    ImageClip,
-    TextClip,
-    VideoFileClip,
-    concatenate_audioclips,
-    concatenate_videoclips,
-    vfx,
+    AudioFileClip, ColorClip, CompositeAudioClip, CompositeVideoClip,
+    ImageClip, TextClip, VideoFileClip, concatenate_audioclips,
+    concatenate_videoclips, vfx,
 )
 
 ANTON_FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"
 FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-
 
 def get_font():
     for pattern in ("fonts/*.ttf", "*.ttf"):
@@ -52,17 +36,12 @@ def get_font():
         pass
     return FALLBACK_FONT
 
-
 def clean_ascii_caps(txt):
     cleaned = re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper()
     return cleaned or "BHAKTI KATHA"
 
-
-# 1. INDIA TIME (IST) KE HISAAB SE DIN KE BHAGWAN KI KATHA
 def get_today_bhagwan_topic():
     ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
-    day_idx = ist_now.weekday()
-
     day_topics = {
         0: ("Somwar Special - Bhagwan Shiv", [
             "Samudra Manthan mein Bhagwan Shiv ka vish peena (Neelkanth)",
@@ -107,29 +86,26 @@ def get_today_bhagwan_topic():
             "Surya Dev ke saat ghodon wale rath ka adbhut rahasya",
         ]),
     }
-    day_label, options = day_topics[day_idx]
+    day_label, options = day_topics[ist_now.weekday()]
     return day_label, random.choice(options)
 
-
 def generate_katha():
-    api_key = os.environ["GEMINI_API_KEY"].strip()
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
     day_label, chosen_topic = get_today_bhagwan_topic()
     print(f"Today's Schedule ({day_label}): {chosen_topic}")
-
     prompt = f"""
-    Today is {day_label}. Create a heart-touching, gripping 19-second Indian Mythological Katha YouTube Short on: "{chosen_topic}".
+    Today is {day_label}. Create a gripping 19-second Indian Mythological Katha YouTube Short on: "{chosen_topic}".
     Rules:
-    - Start immediately with an emotional or curiosity 1-line hook (NO "Namaste dosto", NO intro).
+    - Start immediately with an emotional/curiosity hook (NO "Namaste doston", NO intro).
     - Keep total voiceover 38-45 words in emotional Hindi (Devanagari script).
-    - Last segment MUST ask viewers to comment (e.g., "Har Har Mahadev", "Jai Shri Ram", "Jai Hanuman", matching today's deity).
-    - IMPORTANT: "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
-    - Keep character appearance IDENTICAL across all 6 "scene_prompts" (repeat exact clothing, skin tone, crown/ornaments in every prompt).
+    - Last segment MUST ask viewers to comment (e.g., "Har Har Mahadev", "Jai Shri Ram", matching today's deity).
+    - "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
+    - Keep character appearance IDENTICAL across all 6 "scene_prompts" (repeat exact clothing, skin tone, crown/ornaments).
     - Every scene_prompt MUST include: "cute 2D chibi cartoon illustration, Indian mythological folk art style, warm golden glowing colors, clean dark outlines, expressive cute faces, no text, no watermark".
-    - Return ONLY valid JSON with these exact keys:
+    - Return ONLY valid JSON:
     {{
-      "title": "Catchy Hindi/Hinglish title under 58 chars with #shorts #katha #bhakti",
-      "description": "2 lines devotional story description with #katha #hindikahani #bhakti #shorts",
+      "title": "Catchy title under 58 chars with #shorts #katha #bhakti",
+      "description": "2 lines devotional description with #katha #hindikahani #bhakti #shorts",
       "tags": ["katha", "bhakti", "hindikahani", "mythology", "shorts"],
       "screen_text": "3 TO 5 WORDS CAPS HOOK",
       "segments": [
@@ -140,17 +116,9 @@ def generate_katha():
         {{"voice": "Hindi sentence 5 (6-8 words)", "caption": "2-3 WORDS CAPS"}},
         {{"voice": "Hindi sentence 6 (5-7 words)", "caption": "COMMENT DEITY NAME"}}
       ],
-      "scene_prompts": [
-        "Detailed scene 1...",
-        "Detailed scene 2...",
-        "Detailed scene 3...",
-        "Detailed scene 4...",
-        "Detailed scene 5...",
-        "Detailed scene 6..."
-      ]
+      "scene_prompts": ["Scene 1...", "Scene 2...", "Scene 3...", "Scene 4...", "Scene 5...", "Scene 6..."]
     }}
     """
-
     last_err = None
     for attempt in range(4):
         try:
@@ -171,73 +139,48 @@ def generate_katha():
             time.sleep(10)
     raise last_err
 
-
-# 2. PIXABAY SE AUTOMATIC MOVING SPIRITUAL/SKY BACKGROUND LENA
 def fetch_pixabay_bg_video(filename="katha_bg_motion.mp4"):
     local_clips = []
     for ext in ("*.mp4", "*.mov", "*.mkv"):
         local_clips.extend(glob.glob(os.path.join("katha_clips", ext)))
     if local_clips:
-        chosen = random.choice(local_clips)
-        print("Using local katha clip:", chosen)
-        return chosen
-
+        return random.choice(local_clips)
     pixabay_key = os.environ.get("PIXABAY_API_KEY", "").strip()
     if not pixabay_key:
-        print("PIXABAY_API_KEY not set in workflow env, using scene backdrop.")
         return None
-
     queries = ["golden clouds sky", "temple candle diya", "sunrise clouds nature", "golden particles dark"]
     random.shuffle(queries)
     for q in queries:
         try:
-            res = requests.get(
-                "https://pixabay.com/api/videos/",
-                params={"key": pixabay_key, "q": q, "per_page": 8},
-                timeout=25,
-            ).json()
+            res = requests.get("https://pixabay.com/api/videos/", params={"key": pixabay_key, "q": q, "per_page": 8}, timeout=25).json()
             hits = res.get("hits", [])
             if hits:
                 videos = random.choice(hits).get("videos", {})
                 for quality in ("medium", "small", "tiny"):
                     url = videos.get(quality, {}).get("url")
                     if url:
-                        print(f"Downloaded Pixabay moving backdrop ({q})")
-                        data = requests.get(url, timeout=60).content
+                        print(f"Downloaded Pixabay backdrop ({q})")
                         with open(filename, "wb") as f:
-                            f.write(data)
+                            f.write(requests.get(url, timeout=60).content)
                         return filename
         except Exception as e:
             print(f"Pixabay query '{q}' skipped:", e)
     return None
 
-
-# 3. CLOUDFLARE SE 6 CARTOON SCENES BANANA
 def make_cartoon_images(scene_prompts):
     cf_account = os.environ["CF_ACCOUNT_ID"].strip()
     cf_token = os.environ["CF_API_TOKEN"].strip()
     url = f"https://api.cloudflare.com/client/v4/accounts/{cf_account}/ai/run/@cf/black-forest-labs/flux-1-schnell"
     headers = {"Authorization": f"Bearer {cf_token}"}
-
     img_paths = []
     for i, scene_prompt in enumerate(scene_prompts[:6]):
         filename = f"scene_{i}.jpg"
         saved = False
         for attempt in range(2):
             try:
-                res = requests.post(
-                    url,
-                    headers=headers,
-                    json={"prompt": scene_prompt, "steps": 4},
-                    timeout=60,
-                )
+                res = requests.post(url, headers=headers, json={"prompt": scene_prompt, "steps": 4}, timeout=60)
                 if res.status_code == 200:
-                    ctype = res.headers.get("content-type", "")
-                    if "image/" in ctype:
-                        img_bytes = res.content
-                    else:
-                        b64_data = res.json()["result"]["image"]
-                        img_bytes = base64.b64decode(b64_data)
+                    img_bytes = res.content if "image/" in res.headers.get("content-type", "") else base64.b64decode(res.json()["result"]["image"])
                     with open(filename, "wb") as f:
                         f.write(img_bytes)
                     img_paths.append(filename)
@@ -251,56 +194,36 @@ def make_cartoon_images(scene_prompts):
             time.sleep(2)
         if not saved and img_paths:
             img_paths.append(img_paths[-1])
-
     if not img_paths:
-        raise RuntimeError("No cartoon images could be generated from Cloudflare.")
+        raise RuntimeError("No cartoon images generated from Cloudflare.")
     return img_paths
 
-
-# 4. NATURAL HINDI VOICEOVER
 async def make_voice(text, filename="katha_voice.mp3"):
-    use_eleven = os.environ.get("USE_ELEVENLABS_KATHA", "false").lower() == "true"
-    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
-    voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "nPczCjzI2devNBz1zQrb")
-
-    if use_eleven and eleven_key:
+    if os.environ.get("USE_ELEVENLABS_KATHA", "false").lower() == "true" and os.environ.get("ELEVENLABS_API_KEY", "").strip():
         try:
-            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128"
+            voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "nPczCjzI2devNBz1zQrb")
             res = requests.post(
-                url,
-                headers={"xi-api-key": eleven_key, "Content-Type": "application/json"},
-                json={
-                    "text": text,
-                    "model_id": "eleven_flash_v2_5",
-                    "voice_settings": {"stability": 0.50, "similarity_boost": 0.75, "speed": 1.05},
-                },
+                f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128",
+                headers={"xi-api-key": os.environ["ELEVENLABS_API_KEY"].strip(), "Content-Type": "application/json"},
+                json={"text": text, "model_id": "eleven_flash_v2_5", "voice_settings": {"stability": 0.50, "similarity_boost": 0.75, "speed": 1.05}},
                 timeout=30,
             )
             if res.status_code == 200:
                 with open(filename, "wb") as f:
                     f.write(res.content)
-                print("Voice generated via ElevenLabs!")
                 return
         except Exception as e:
-            print(f"ElevenLabs fallback triggered: {e}")
-
-    communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+8%")
-    await communicate.save(filename)
+            print(f"ElevenLabs fallback: {e}")
+    await edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+8%").save(filename)
     print("Voice generated via Indian Edge-TTS (+8%)!")
 
-
-# 5. FLOATING GOLDEN DIVINE SPARKS
 def make_sparkle_transform(seed=42):
     rng = random.Random(seed)
     r = 5
     yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
     glow_mask = np.maximum(0.0, 1.0 - np.sqrt(xx * xx + yy * yy) / (r + 0.5))[:, :, None]
     spark_rgb = np.array([[[255.0, 210.0, 80.0]]])
-
-    sparks = [
-        (rng.uniform(0, 1060), rng.uniform(0, 1060), rng.uniform(45, 115), rng.uniform(0, 6.28))
-        for _ in range(22)
-    ]
+    sparks = [(rng.uniform(0, 1060), rng.uniform(0, 1060), rng.uniform(45, 115), rng.uniform(0, 6.28)) for _ in range(22)]
 
     def apply_sparks(get_frame, t):
         frame = np.array(get_frame(t), copy=True)
@@ -315,19 +238,13 @@ def make_sparkle_transform(seed=42):
             patch += glow_mask * spark_rgb * twinkle
             frame[cy - r:cy + r + 1, cx - r:cx + r + 1] = np.clip(patch, 0, 255).astype(np.uint8)
         return frame
-
     return apply_sparks
 
-
-# 6. PIXABAY MOVING BACKDROP + ANIMATED SCENES + SPARKS + CAPTIONS
 def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.mp4"):
     font_path = get_font()
     voice = AudioFileClip("katha_voice.mp3").with_volume_scaled(1.25)
     duration = voice.duration
-
-    audio_layers = [voice]
-    opened_audio = [voice]
-    opened_videos = []
+    audio_layers, opened_audio, opened_videos = [voice], [voice], []
 
     music_files = []
     for folder in ("katha_music", "music", "sfx"):
@@ -340,19 +257,11 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
                     probe.close()
                 except Exception:
                     pass
-
     if music_files:
-        chosen_bgm = random.choice(music_files)
-        print("Using Katha BGM:", chosen_bgm)
-        bgm_raw = AudioFileClip(chosen_bgm)
+        bgm_raw = AudioFileClip(random.choice(music_files))
         opened_audio.append(bgm_raw)
-        if bgm_raw.duration < duration:
-            loops = int(duration // bgm_raw.duration) + 1
-            bgm = concatenate_audioclips([bgm_raw] * loops)
-        else:
-            bgm = bgm_raw
-        bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.14)
-        audio_layers.append(bgm)
+        bgm = concatenate_audioclips([bgm_raw] * (int(duration // bgm_raw.duration) + 1)) if bgm_raw.duration < duration else bgm_raw
+        audio_layers.append(bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.14))
 
     video_layers = []
     n_scenes = len(img_paths)
@@ -362,128 +271,67 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
     bg_loaded = False
     if bg_video_path and os.path.exists(bg_video_path):
         try:
-            raw_bg = VideoFileClip(bg_video_path).without_audio()
+            raw_bg = VideoFileClip(bg_video_path).without_audio().resized(height=1920)
             opened_videos.append(raw_bg)
-            raw_bg = raw_bg.resized(height=1920)
             if raw_bg.w < 1080:
                 raw_bg = raw_bg.resized(width=1080)
             raw_bg = raw_bg.cropped(x_center=raw_bg.w / 2, y_center=raw_bg.h / 2, width=1080, height=1920)
-            if raw_bg.duration < duration:
-                loops = int(duration // max(raw_bg.duration, 0.5)) + 1
-                bg_motion = concatenate_videoclips([raw_bg] * loops).subclipped(0, duration)
-            else:
-                bg_motion = raw_bg.subclipped(0, duration)
+            bg_motion = concatenate_videoclips([raw_bg] * (int(duration // max(raw_bg.duration, 0.5)) + 1)).subclipped(0, duration) if raw_bg.duration < duration else raw_bg.subclipped(0, duration)
             video_layers.append(bg_motion)
             bg_loaded = True
         except Exception as e:
-            print("Pixabay bg video fallback:", e)
+            print("Pixabay bg fallback:", e)
 
     if not bg_loaded:
         for i, img_path in enumerate(img_paths):
-            start_t = i * scene_dur
             seg_d = scene_dur + (fade_t if i < n_scenes - 1 else 0.0)
             bg_full = ImageClip(img_path).resized(height=1920)
-            bg_full = bg_full.cropped(x_center=bg_full.w / 2, y_center=bg_full.h / 2, width=1080, height=1920)
-            bg_layer = bg_full.with_duration(seg_d).with_start(start_t)
+            bg_full = bg_full.cropped(x_center=bg_full.w / 2, y_center=bg_full.h / 2, width=1080, height=1920).with_duration(seg_d).with_start(i * scene_dur)
             if i > 0:
-                bg_layer = bg_layer.with_effects([vfx.CrossFadeIn(fade_t)])
-            video_layers.append(bg_layer)
+                bg_full = bg_full.with_effects([vfx.CrossFadeIn(fade_t)])
+            video_layers.append(bg_full)
 
-    dark_veil = ColorClip(size=(1080, 1920), color=(14, 8, 26)).with_opacity(0.55).with_duration(duration)
-    video_layers.append(dark_veil)
-
-    gold_frame = ColorClip(size=(1080, 1104), color=(217, 119, 6)).with_duration(duration).with_position(("center", 348))
-    video_layers.append(gold_frame)
-
+    video_layers.append(ColorClip(size=(1080, 1920), color=(14, 8, 26)).with_opacity(0.55).with_duration(duration))
+    video_layers.append(ColorClip(size=(1080, 1104), color=(217, 119, 6)).with_duration(duration).with_position(("center", 348)))
     sparkle_fn = make_sparkle_transform()
 
     for i, img_path in enumerate(img_paths):
-        start_t = i * scene_dur
         seg_d = scene_dur + (fade_t if i < n_scenes - 1 else 0.0)
         base_img = ImageClip(img_path).with_duration(seg_d).resized(width=1240)
-        motion_type = i % 4
-
-        if motion_type == 0:
+        m = i % 4
+        if m == 0:
             moving = base_img.resized(lambda t, d=seg_d: 0.88 + 0.12 * (t / max(d, 0.1))).with_position("center")
-        elif motion_type == 1:
+        elif m == 1:
             moving = base_img.with_position(lambda t, d=seg_d: (int(-160 * (1.0 - t / max(d, 0.1))), -80))
-        elif motion_type == 2:
+        elif m == 2:
             moving = base_img.resized(lambda t, d=seg_d: 1.0 - 0.12 * (t / max(d, 0.1))).with_position("center")
         else:
             moving = base_img.with_position(lambda t, d=seg_d: (int(-160 * (t / max(d, 0.1))), -80))
-
-        framed = CompositeVideoClip([moving], size=(1080, 1080)).with_duration(seg_d)
-        framed = framed.transform(sparkle_fn)
-        framed = framed.with_start(start_t).with_position(("center", 360))
+        framed = CompositeVideoClip([moving], size=(1080, 1080)).with_duration(seg_d).transform(sparkle_fn).with_start(i * scene_dur).with_position(("center", 360))
         if i > 0:
             framed = framed.with_effects([vfx.CrossFadeIn(fade_t)])
         video_layers.append(framed)
 
-    banner_bg = (
-        ColorClip(size=(960, 128), color=(180, 83, 9))
-        .with_opacity(0.92)
-        .with_duration(duration)
-        .with_position(("center", 130))
-    )
-    video_layers.append(banner_bg)
-
-    title_txt = (
-        TextClip(
-            font=font_path,
-            text=clean_ascii_caps(data["screen_text"]),
-            font_size=54,
-            color="white",
-            stroke_color="black",
-            stroke_width=4,
-            method="caption",
-            size=(900, None),
-            margin=(0, 10),
-        )
-        .with_duration(duration)
-        .with_position(("center", 150))
-    )
-    video_layers.append(title_txt)
+    video_layers.append(ColorClip(size=(960, 128), color=(180, 83, 9)).with_opacity(0.92).with_duration(duration).with_position(("center", 130)))
+    video_layers.append(TextClip(font=font_path, text=clean_ascii_caps(data["screen_text"]), font_size=54, color="white", stroke_color="black", stroke_width=4, method="caption", size=(900, None), margin=(0, 10)).with_duration(duration).with_position(("center", 150)))
 
     seg_list = data["segments"]
     total_chars = max(1, sum(len(s["voice"]) for s in seg_list))
     cur_t = 0.0
-
     for i, item in enumerate(seg_list):
         seg_dur = (len(item["voice"]) / total_chars) * duration
-        cap_text = clean_ascii_caps(item["caption"])
-        cap_color = "yellow" if i % 2 == 0 else "white"
-
-        c_clip = (
-            TextClip(
-                font=font_path,
-                text=cap_text,
-                font_size=68,
-                color=cap_color,
-                stroke_color="black",
-                stroke_width=6,
-                method="caption",
-                size=(920, None),
-                margin=(0, 14),
-            )
-            .with_start(cur_t)
-            .with_duration(seg_dur)
-            .with_position(("center", 1500))
-        )
-        video_layers.append(c_clip)
+        video_layers.append(TextClip(font=font_path, text=clean_ascii_caps(item["caption"]), font_size=68, color="yellow" if i % 2 == 0 else "white", stroke_color="black", stroke_width=6, method="caption", size=(920, None), margin=(0, 14)).with_start(cur_t).with_duration(seg_dur).with_position(("center", 1500)))
         cur_t += seg_dur
 
     final_audio = CompositeAudioClip(audio_layers).with_duration(duration)
     final = CompositeVideoClip(video_layers, size=(1080, 1920)).with_duration(duration).with_audio(final_audio)
     final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", threads=4)
-
     for a in opened_audio:
         a.close()
     for v in opened_videos:
         v.close()
     final.close()
 
-
-# 7. UPLOAD TO KATHA CHANNEL
 def upload_video(video_file, data):
     creds = Credentials(
         token=None,
@@ -494,6 +342,29 @@ def upload_video(video_file, data):
         scopes=["https://www.googleapis.com/auth/youtube.upload"],
     )
     creds.refresh(Request())
-
     youtube = build("youtube", "v3", credentials=creds)
-    
+    request = youtube.videos().insert(
+        part="snippet,status",
+        body={
+            "snippet": {
+                "title": data["title"][:95],
+                "description": data["description"],
+                "tags": data.get("tags", ["katha", "bhakti", "shorts"]),
+                "categoryId": "24",
+            },
+            "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False},
+        },
+        media_body=MediaFileUpload(video_file, chunksize=-1, resumable=True),
+    )
+    response = request.execute()
+    print("SUCCESS! Katha Video Uploaded. ID:", response["id"])
+
+if __name__ == "__main__":
+    data = generate_katha()
+    print("Generated Title:", data["title"])
+    img_paths = make_cartoon_images(data["scene_prompts"])
+    bg_video = fetch_pixabay_bg_video()
+    full_voice = " ".join(s["voice"] for s in data["segments"])
+    asyncio.run(make_voice(full_voice))
+    build_video(data, img_paths, bg_video_path=bg_video)
+    upload_video("katha_output.mp4", data)
