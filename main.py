@@ -4,6 +4,7 @@ import io
 import json
 import os
 import random
+import re
 import time
 import requests
 import edge_tts
@@ -25,8 +26,40 @@ from moviepy import (
     concatenate_videoclips,
 )
 
-def list_files(pattern):
-    return [os.path.basename(p) for p in sorted(glob.glob(pattern))]
+ANTON_FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"
+FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+
+def get_gaming_font():
+    for pattern in ("fonts/*.ttf", "*.ttf"):
+        found = glob.glob(pattern)
+        if found:
+            return found[0]
+    tmp_font = "/tmp/Anton-Regular.ttf"
+    if os.path.exists(tmp_font):
+        return tmp_font
+    try:
+        r = requests.get(ANTON_FONT_URL, timeout=20)
+        if r.ok and len(r.content) > 10000:
+            with open(tmp_font, "wb") as f:
+                f.write(r.content)
+            return tmp_font
+    except Exception:
+        pass
+    return FALLBACK_FONT
+
+
+def clean_ascii_caps(txt):
+    cleaned = re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper()
+    return cleaned or "FREE FIRE"
+
+
+def list_files(patterns):
+    files = []
+    for pat in patterns:
+        files.extend(glob.glob(pat))
+    return [os.path.basename(p) for p in sorted(set(files))]
+
 
 def extract_preview_parts(pattern, label, limit=8):
     files = glob.glob(pattern)
@@ -57,21 +90,22 @@ def extract_preview_parts(pattern, label, limit=8):
                 c.close()
     return names, parts
 
-# 1. AI DIRECTOR: CLIP & MEME DEKH KAR TOPIC, SCRIPT AUR MATCHING FILES CHUNNA
+
+# 1. AI VISION DIRECTOR: CLIP & MEME DEKH KAR SCRIPT + SYNCED CAPTIONS BANANA
 def generate_script():
     api_key = os.environ["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
     themes = [
         "Secret Red Number Headshot Sensitivity & Fire Button Size Trick",
         "99% Players Make This Big Mistake in Clash Squad Rank",
-        "MP40 vs M1887 or Best Character Skill Debate (Comment Battle)",
+        "MP40 vs M1887 vs UMP: Close Range Ka Asli King Kaun?",
         "Old Free Fire Rare Facts & Nostalgia That New Players Don't Know",
         "Fast Crouch Gloo Wall & 1v4 Clutch Pro Secret",
         "BR Rank Secret Survival & Hidden Pro Strategy",
         "Free Fire Myth vs Fact That Surprises Pro Players",
         "Best Gun Skin Without Spending Diamonds (Free Trick)",
         "Sniper AWM Double Switch Fast Shot Secret",
-        "Low End Phone 2GB/4GB RAM Lag Fix & Smooth Gameplay Settings",
+        "Low End Phone 2GB/4GB RAM Lag Fix & Smooth Settings",
         "Top 3 Overpowered Character Combinations for CS Rank Push",
         "Why Old Peak & Factory Roof Fights Were Legendary",
         "Rush vs Camp Strategy: How Grandmaster Players Win",
@@ -83,13 +117,13 @@ def generate_script():
 
     avail_clips, clip_parts = extract_preview_parts("clips/freefire/*.mp4", "Gameplay Clip", limit=8)
     avail_memes, meme_parts = extract_preview_parts("memes/*.mp4", "Ending Meme", limit=6)
-    avail_sfx = list_files("sfx/*.mp3")
-    avail_music = list_files("music/*.mp3")
+    avail_sfx = list_files(["sfx/*.mp3", "sfx/*.wav"])
+    avail_music = list_files(["music/*.mp3", "sfx/*.mp3"])
 
     prompt = f"""
     Today is {today_str}. You are a viral Indian Free Fire YouTube Shorts director & scriptwriter.
     Look at the Gameplay Clip previews and Ending Meme previews provided above.
-    Create a fast-paced 18-second Short on: {chosen_theme}.
+    Create a fast-paced 18-second Short on: "{chosen_theme}".
 
     Available files you MUST choose from:
     - Gameplay clips: {avail_clips if avail_clips else ["NONE"]}
@@ -98,21 +132,31 @@ def generate_script():
     - Background music: {avail_music if avail_music else ["NONE"]}
 
     Rules:
-    - Start immediately with a shocking 1-line hook (NO "Hello dosto" or intro).
-    - Pick the Gameplay clips whose visuals best match your topic, and pick the Ending meme whose reaction best fits your ending punchline/question.
-    - End with a short question asking viewers to comment their choice/opinion.
+    - Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
+    - Do NOT fake play-by-play commentary ("dekho ab bande ko mara") unless it clearly fits; give crisp pro tips/facts/battles!
+    - Keep total voiceover 35-44 words in natural energetic Hindi (Devanagari script).
+    - Last segment MUST ask viewers a comment question (e.g., "MP40 ya M1887 comment karo!").
+    - IMPORTANT: "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
     - Return ONLY valid JSON with these exact keys:
-    - "title": Catchy Hinglish title under 60 chars with #shorts #freefire
-    - "description": 2 lines gaming description with #freefire #freefireindia #freefireshorts #shorts
-    - "tags": list of 5 short tags like ["freefire", "freefireshorts", "headshot", "gaming", "shorts"]
-    - "search_query": 2 English words for stock fallback video (pick from: "gaming neon", "esports gamer", "cyberpunk dark", "abstract laser")
-    - "voice_text": 3 to 4 short, high-energy sentences in natural Hindi (Devanagari script, 35-45 words total)
-    - "screen_text": ONLY 3 to 5 words MAX in Hinglish/English ALL CAPS, NO emojis
-    - "captions": list of 4 short punchy Hinglish/English ALL CAPS lines (3 to 4 words each, NO emojis) matching the voiceover order
-    - "chosen_clips": list of up to 5 exact filenames from Gameplay clips that BEST match visually (or [] if NONE)
-    - "chosen_meme": 1 exact filename from Ending memes that BEST fits the ending mood (or "" if NONE)
-    - "chosen_sfx": 1 exact filename from Hook SFX that BEST fits (or "" if NONE)
-    - "chosen_music": 1 exact filename from Background music that BEST fits the vibe (or "" if NONE)
+    {{
+      "title": "Catchy Hinglish title under 58 chars with #shorts #freefire",
+      "description": "2 lines gaming description with #freefire #freefireindia #freefireshorts #shorts",
+      "tags": ["freefire", "freefireshorts", "headshot", "gaming", "shorts"],
+      "search_query": "gaming neon",
+      "screen_text": "3 TO 5 WORDS CAPS HOOK",
+      "segments": [
+        {{"voice": "Hindi sentence 1 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 2 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 3 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 4 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 5 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
+        {{"voice": "Hindi sentence 6 (5-7 words)", "caption": "COMMENT YOUR GUN"}}
+      ],
+      "chosen_clips": ["exact filenames from Gameplay clips"],
+      "chosen_meme": "1 exact filename from Ending memes (or empty string)",
+      "chosen_sfx": "1 exact filename from Hook SFX (or empty string)",
+      "chosen_music": "1 exact filename from Background music (or empty string)"
+    }}
     """
 
     last_err = None
@@ -127,50 +171,49 @@ def generate_script():
             text = response.text.strip()
             if text.startswith("```"):
                 text = text.strip("`").replace("json", "", 1).strip()
-            return json.loads(text)
+            data = json.loads(text)
+            if data.get("segments"):
+                return data
         except Exception as e:
             last_err = e
             print(f"Attempt {attempt + 1} info: {e}")
             time.sleep(10)
     raise last_err
 
-# 2. FAST & VIRAL HINDI VOICEOVER (ElevenLabs "Adam" + Edge-TTS Backup)
-async def make_voice(text, filename="voice.mp3"):
-    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
-    voice_id = "pNInz6obpgDQGcFmaJgB"  # Adam (Viral Shorts voice)
 
-    if eleven_key:
+# 2. FAST INDIAN HINDI VOICEOVER (Edge-TTS Indian Primary + Optional ElevenLabs)
+async def make_voice(text, filename="voice.mp3"):
+    use_eleven = os.environ.get("USE_ELEVENLABS_FF", "false").lower() == "true"
+    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")
+
+    if use_eleven and eleven_key:
         try:
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128"
-            headers = {
-                "xi-api-key": eleven_key,
-                "Content-Type": "application/json",
-            }
-            payload = {
-                "text": text,
-                "model_id": "eleven_flash_v2_5",
-                "voice_settings": {
-                    "stability": 0.45,
-                    "similarity_boost": 0.75,
-                    "speed": 1.15,
+            res = requests.post(
+                url,
+                headers={"xi-api-key": eleven_key, "Content-Type": "application/json"},
+                json={
+                    "text": text,
+                    "model_id": "eleven_flash_v2_5",
+                    "voice_settings": {"stability": 0.45, "similarity_boost": 0.75, "speed": 1.15},
                 },
-            }
-            res = requests.post(url, headers=headers, json=payload, timeout=30)
+                timeout=30,
+            )
             if res.status_code == 200:
                 with open(filename, "wb") as f:
                     f.write(res.content)
-                print("Voice generated via ElevenLabs (Adam)!")
+                print("Voice generated via ElevenLabs!")
                 return
-            else:
-                print(f"ElevenLabs failed ({res.status_code}): {res.text[:200]} -> Using edge-tts")
         except Exception as e:
-            print(f"ElevenLabs error: {e} -> Using edge-tts")
+            print(f"ElevenLabs fallback triggered: {e}")
 
     communicate = edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+15%")
     await communicate.save(filename)
-    print("Voice generated via Edge-TTS!")
+    print("Voice generated via Indian Edge-TTS (+15%)!")
 
-# 3. SMART CLIPS SELECTION (AI Vision Chosen + Random Fill + Pixabay Fallback)
+
+# 3. SMART CLIPS SELECTION
 def get_bg_clips(data, filename="bg.mp4"):
     all_local = glob.glob("clips/freefire/*.mp4")
     if all_local:
@@ -184,9 +227,9 @@ def get_bg_clips(data, filename="bg.mp4"):
 
         remaining = [p for p in all_local if p not in chosen_paths]
         random.shuffle(remaining)
-        chosen_paths.extend(remaining[: max(0, 5 - len(chosen_paths))])
+        chosen_paths.extend(remaining[: max(0, 6 - len(chosen_paths))])
         print("Selected Free Fire clips:", chosen_paths)
-        return chosen_paths[:5]
+        return chosen_paths[:6]
 
     api_key = os.environ["PIXABAY_API_KEY"].strip()
     query = data.get("search_query", "gaming")
@@ -195,45 +238,62 @@ def get_bg_clips(data, filename="bg.mp4"):
         params={"key": api_key, "q": query, "per_page": 5},
         timeout=30,
     ).json()
-    hits = res.get("hits", [])
-
-    if not hits:
-        res = requests.get(
-            "https://pixabay.com/api/videos/",
-            params={"key": api_key, "q": "gaming", "per_page": 5},
-            timeout=30,
-        ).json()
-        hits = res.get("hits", [])
+    hits = res.get("hits", []) or requests.get(
+        "https://pixabay.com/api/videos/",
+        params={"key": api_key, "q": "gaming", "per_page": 5},
+        timeout=30,
+    ).json().get("hits", [])
 
     if hits:
         videos = random.choice(hits).get("videos", {})
         for quality in ("medium", "small", "large", "tiny"):
             if quality in videos and videos[quality].get("url"):
-                mp4_link = videos[quality]["url"]
-                video_data = requests.get(mp4_link, timeout=60).content
+                video_data = requests.get(videos[quality]["url"], timeout=60).content
                 with open(filename, "wb") as f:
                     f.write(video_data)
                 return [filename]
     return []
 
-def pick_smart_file(folder, ai_choice, pattern):
-    all_files = glob.glob(pattern)
-    if not all_files:
+
+def pick_smart_file(folders, ai_choice, extensions, min_dur=None, max_dur=None):
+    all_files = []
+    for folder in folders:
+        for ext in extensions:
+            all_files.extend(glob.glob(os.path.join(folder, f"*{ext}")))
+
+    valid_files = []
+    for fpath in all_files:
+        if min_dur is None and max_dur is None:
+            valid_files.append(fpath)
+            continue
+        try:
+            probe = AudioFileClip(fpath)
+            d = probe.duration
+            probe.close()
+            if (min_dur is None or d >= min_dur) and (max_dur is None or d <= max_dur):
+                valid_files.append(fpath)
+        except Exception:
+            pass
+
+    if not valid_files:
         return None
     if isinstance(ai_choice, str) and ai_choice.strip():
-        candidate = os.path.join(folder, os.path.basename(ai_choice.strip()))
-        if os.path.isfile(candidate):
-            return candidate
-    return random.choice(all_files)
+        target_name = os.path.basename(ai_choice.strip())
+        for vf in valid_files:
+            if os.path.basename(vf) == target_name:
+                return vf
+    return random.choice(valid_files)
 
-# 4. FAST-CUT (3s) + CAPTIONS + SMART BGM + SMART SFX + SMART ENDING MEME
+
+# 4. FAST-CUT (1.8s) + HD BLUR BACKDROP + ANTON FONT + SYNCED CAPTIONS + MEME
 def build_video(data, bg_paths, output_file="output.mp4"):
-    voice = AudioFileClip("voice.mp3")
+    font_path = get_gaming_font()
+    voice = AudioFileClip("voice.mp3").with_volume_scaled(1.25)
     duration = voice.duration
 
-    meme_path = pick_smart_file("memes", data.get("chosen_meme"), "memes/*.mp4")
-    sfx_path = pick_smart_file("sfx", data.get("chosen_sfx"), "sfx/*.mp3")
-    music_path = pick_smart_file("music", data.get("chosen_music"), "music/*.mp3")
+    meme_path = pick_smart_file(["memes"], data.get("chosen_meme"), [".mp4"])
+    sfx_path = pick_smart_file(["sfx"], data.get("chosen_sfx"), [".mp3", ".wav"], max_dur=7.9)
+    music_path = pick_smart_file(["music", "sfx"], data.get("chosen_music"), [".mp3", ".wav", ".m4a"], min_dur=8.0)
 
     meme_raw = None
     meme_dur = 0.0
@@ -241,7 +301,7 @@ def build_video(data, bg_paths, output_file="output.mp4"):
         print("Selected ending meme:", meme_path)
         meme_raw = VideoFileClip(meme_path)
         if meme_raw.duration > 0.2:
-            meme_dur = min(meme_raw.duration, 2.8)
+            meme_dur = min(meme_raw.duration, 2.5)
         else:
             meme_raw.close()
             meme_raw = None
@@ -255,53 +315,63 @@ def build_video(data, bg_paths, output_file="output.mp4"):
             sfx_raw.close()
             sfx_raw = None
         elif meme_dur == 0.0:
-            sfx_outro_dur = min(sfx_raw.duration, 2.5)
+            sfx_outro_dur = min(sfx_raw.duration, 2.0)
 
     bg_dur = duration + sfx_outro_dur
-
     audio_layers = [voice]
     bgm_raw = None
+
     if music_path:
-        print("Selected music:", music_path)
+        print("Selected BGM:", music_path)
         bgm_raw = AudioFileClip(music_path)
         if bgm_raw.duration < duration:
             loops = int(duration // bgm_raw.duration) + 1
             bgm = concatenate_audioclips([bgm_raw] * loops)
         else:
             bgm = bgm_raw
-        bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.12)
+        bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.13)
         audio_layers.append(bgm)
 
     if sfx_raw:
         if meme_dur > 0.0:
-            sfx_clip = sfx_raw.subclipped(0, min(sfx_raw.duration, 1.2)).with_volume_scaled(0.35).with_start(0)
-            audio_layers.append(sfx_clip)
+            audio_layers.append(sfx_raw.subclipped(0, min(sfx_raw.duration, 1.2)).with_volume_scaled(0.40).with_start(0))
         elif sfx_outro_dur > 0.0:
-            sfx_clip = sfx_raw.subclipped(0, sfx_outro_dur).with_volume_scaled(0.85).with_start(duration)
-            audio_layers.append(sfx_clip)
+            audio_layers.append(sfx_raw.subclipped(0, sfx_outro_dur).with_volume_scaled(0.80).with_start(duration))
 
     opened_clips = []
     segments = []
     if bg_paths:
-        target_cut = 3.0
+        target_cut = 1.8
         current_len = 0.0
         idx = 0
-        while current_len < bg_dur and idx < 25:
+        while current_len < bg_dur and idx < 30:
             clip = VideoFileClip(bg_paths[idx % len(bg_paths)]).without_audio()
             opened_clips.append(clip)
-            if clip.duration <= 0.2:
+            if clip.duration <= 0.3:
                 idx += 1
                 continue
             cut_len = min(target_cut, clip.duration, bg_dur - current_len)
             max_start = max(0.0, clip.duration - cut_len)
-            start_t = random.uniform(0.0, max_start) if max_start > 0.5 else 0.0
+            start_t = random.uniform(0.0, max_start) if max_start > 0.3 else 0.0
 
             seg = clip.subclipped(start_t, start_t + cut_len)
-            seg = seg.resized(height=1920)
-            if seg.w < 1080:
-                seg = seg.resized(width=1080)
-            seg = seg.cropped(x_center=seg.w / 2, y_center=seg.h / 2, width=1080, height=1920)
-            segments.append(seg)
+            bg_fill = seg.resized(height=1920)
+            if bg_fill.w < 1080:
+                bg_fill = bg_fill.resized(width=1080)
+            bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
+
+            if seg.w >= seg.h:
+                bg_blur = bg_fill.resized(width=80).resized((1080, 1920))
+                dark_veil = ColorClip(size=(1080, 1920), color=(8, 12, 22)).with_opacity(0.62).with_duration(cut_len)
+                fg = seg.resized(width=1080)
+                fg_y = max(360, (1920 - fg.h) // 2 - 110)
+                border = ColorClip(size=(1080, fg.h + 14), color=(220, 38, 38)).with_duration(cut_len).with_position(("center", fg_y - 7))
+                comp_seg = CompositeVideoClip([bg_blur, dark_veil, border, fg.with_position(("center", fg_y))], size=(1080, 1920)).with_duration(cut_len)
+            else:
+                dark_veil = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.18).with_duration(cut_len)
+                comp_seg = CompositeVideoClip([bg_fill, dark_veil], size=(1080, 1920)).with_duration(cut_len)
+
+            segments.append(comp_seg)
             current_len += cut_len
             idx += 1
 
@@ -312,52 +382,61 @@ def build_video(data, bg_paths, output_file="output.mp4"):
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(bg_dur)
 
-    overlay = ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.22).with_duration(bg_dur)
+    # Top Red Hook Banner
+    banner_bg = (
+        ColorClip(size=(960, 130), color=(185, 28, 28))
+        .with_opacity(0.92)
+        .with_duration(bg_dur)
+        .with_position(("center", 145))
+    )
 
-    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
     title_txt = (
         TextClip(
             font=font_path,
-            text=data["screen_text"].upper(),
-            font_size=48,
-            color="yellow",
+            text=clean_ascii_caps(data["screen_text"]),
+            font_size=56,
+            color="white",
             stroke_color="black",
             stroke_width=4,
             method="caption",
-            size=(920, None),
-            margin=(0, 12),
+            size=(900, None),
+            margin=(0, 10),
         )
         .with_duration(bg_dur)
-        .with_position(("center", 200))
+        .with_position(("center", 165))
     )
 
-    captions = data.get("captions") or [data["screen_text"]]
-    captions = [str(c).strip().upper() for c in captions if str(c).strip()]
-    if not captions:
-        captions = [data["screen_text"].upper()]
-
-    cap_dur = duration / len(captions)
+    # Synced Alternating Yellow/White Captions
+    seg_list = data["segments"]
+    total_chars = max(1, sum(len(s["voice"]) for s in seg_list))
     caption_clips = []
-    for i, cap_text in enumerate(captions):
+    cur_t = 0.0
+
+    for i, item in enumerate(seg_list):
+        seg_dur = (len(item["voice"]) / total_chars) * duration
+        cap_text = clean_ascii_caps(item["caption"])
+        cap_color = "yellow" if i % 2 == 0 else "white"
+
         c_clip = (
             TextClip(
                 font=font_path,
                 text=cap_text,
-                font_size=56,
-                color="white",
+                font_size=74,
+                color=cap_color,
                 stroke_color="black",
-                stroke_width=5,
+                stroke_width=6,
                 method="caption",
                 size=(920, None),
-                margin=(0, 12),
+                margin=(0, 14),
             )
-            .with_start(i * cap_dur)
-            .with_duration(cap_dur)
-            .with_position(("center", 1380))
+            .with_start(cur_t)
+            .with_duration(seg_dur)
+            .with_position(("center", 1290))
         )
         caption_clips.append(c_clip)
+        cur_t += seg_dur
 
-    video_layers = [bg, overlay, title_txt, *caption_clips]
+    video_layers = [bg, banner_bg, title_txt, *caption_clips]
     if meme_raw and meme_dur > 0.0:
         meme_seg = meme_raw.subclipped(0, meme_dur)
         meme_vid = meme_seg.without_audio().resized(width=1080)
@@ -384,6 +463,7 @@ def build_video(data, bg_paths, output_file="output.mp4"):
     for c in opened_clips:
         c.close()
     final.close()
+
 
 # 5. YOUTUBE PAR PUBLIC AUTO UPLOAD KARNA
 def upload_video(video_file, data):
@@ -417,10 +497,12 @@ def upload_video(video_file, data):
     response = request.execute()
     print("SUCCESS! Video Uploaded. ID:", response["id"])
 
+
 if __name__ == "__main__":
     data = generate_script()
     print("Generated Title:", data["title"])
-    asyncio.run(make_voice(data["voice_text"]))
+    full_voice = " ".join(s["voice"] for s in data["segments"])
+    asyncio.run(make_voice(full_voice))
     bg_paths = get_bg_clips(data)
     build_video(data, bg_paths)
     upload_video("output.mp4", data)
