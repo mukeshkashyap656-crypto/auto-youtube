@@ -119,11 +119,13 @@ def generate_katha():
       "scene_prompts": ["Scene 1...", "Scene 2...", "Scene 3...", "Scene 4...", "Scene 5...", "Scene 6..."]
     }}
     """
+    models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"]
     last_err = None
     for attempt in range(4):
+        model_name = models_to_try[attempt % len(models_to_try)]
         try:
             response = client.models.generate_content(
-                model="gemini-3.8-flash",
+                model=model_name,
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json"),
             )
@@ -132,11 +134,12 @@ def generate_katha():
                 text = text.strip("`").replace("json", "", 1).strip()
             data = json.loads(text)
             if data.get("segments") and data.get("scene_prompts"):
+                print("Script generated using:", model_name)
                 return data
         except Exception as e:
             last_err = e
-            print(f"Attempt {attempt + 1} info: {e}")
-            time.sleep(10)
+            print(f"Attempt {attempt + 1} ({model_name}) info: {e}")
+            time.sleep(5)
     raise last_err
 
 def fetch_pixabay_bg_video(filename="katha_bg_motion.mp4"):
