@@ -202,23 +202,41 @@ def make_cartoon_images(scene_prompts):
     return img_paths
 
 async def make_voice(text, filename="katha_voice.mp3"):
-    if os.environ.get("USE_ELEVENLABS_KATHA", "false").lower() == "true" and os.environ.get("ELEVENLABS_API_KEY", "").strip():
+    # 1. Try Edge-TTS (Madhur & Swara with retries)
+    for voice_name, rate in [("hi-IN-MadhurNeural", "+8%"), ("hi-IN-SwaraNeural", "+8%"), ("hi-IN-MadhurNeural", "+0%")]:
+        try:
+            await edge_tts.Communicate(text, voice_name, rate=rate).save(filename)
+            if os.path.exists(filename) and os.path.getsize(filename) > 1000:
+                print(f"Voice generated via Edge-TTS ({voice_name})!")
+                return
+        except Exception as e:
+            print(f"Edge-TTS ({voice_name}) failed: {e}")
+            await asyncio.sleep(2)
+
+    # 2. Automatic Fallback to ElevenLabs
+    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if eleven_key:
         try:
             voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "nPczCjzI2devNBz1zQrb")
             res = requests.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128",
-                headers={"xi-api-key": os.environ["ELEVENLABS_API_KEY"].strip(), "Content-Type": "application/json"},
+                headers={"xi-api-key": eleven_key, "Content-Type": "application/json"},
                 json={"text": text, "model_id": "eleven_flash_v2_5", "voice_settings": {"stability": 0.50, "similarity_boost": 0.75, "speed": 1.05}},
                 timeout=30,
             )
             if res.status_code == 200:
                 with open(filename, "wb") as f:
                     f.write(res.content)
+                print("Voice generated via ElevenLabs fallback!")
                 return
+            print(f"ElevenLabs fallback error ({res.status_code}): {res.text[:150]}")
         except Exception as e:
-            print(f"ElevenLabs fallback: {e}")
-    await edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+8%").save(filename)
-    print("Voice generated via Indian Edge-TTS (+8%)!")
+            print("ElevenLabs fallback exception:", e)
+
+    # 3. Last-resort gTTS Hindi fallback
+    from gtts import gTTS
+    gTTS(text=text, lang="hi").save(filename)
+    print("Voice generated via gTTS fallback!")
 
 def make_sparkle_transform(seed=42):
     rng = random.Random(seed)
