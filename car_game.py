@@ -102,23 +102,37 @@ def generate_script():
     raise last_err
 
 async def make_voice(text, filename="car_voice.mp3"):
-    if os.environ.get("USE_ELEVENLABS_CAR", "false").lower() == "true" and os.environ.get("ELEVENLABS_API_KEY", "").strip():
+    for voice_name, rate in [("hi-IN-MadhurNeural", "+15%"), ("hi-IN-SwaraNeural", "+15%"), ("hi-IN-MadhurNeural", "+0%")]:
+        try:
+            await edge_tts.Communicate(text, voice_name, rate=rate).save(filename)
+            if os.path.exists(filename) and os.path.getsize(filename) > 1000:
+                print(f"Voice generated via Edge-TTS ({voice_name})!")
+                return
+        except Exception as e:
+            print(f"Edge-TTS ({voice_name}) failed: {e}")
+            await asyncio.sleep(2)
+
+    eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if eleven_key:
         try:
             voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "JBFqnCBsd6RMkjVDRZzb")
             res = requests.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128",
-                headers={"xi-api-key": os.environ["ELEVENLABS_API_KEY"].strip(), "Content-Type": "application/json"},
+                headers={"xi-api-key": eleven_key, "Content-Type": "application/json"},
                 json={"text": text, "model_id": "eleven_flash_v2_5", "voice_settings": {"stability": 0.4, "similarity_boost": 0.8, "speed": 1.15}},
                 timeout=30,
             )
             if res.status_code == 200:
                 with open(filename, "wb") as f:
                     f.write(res.content)
+                print("Voice generated via ElevenLabs fallback!")
                 return
         except Exception as e:
-            print(f"ElevenLabs fallback: {e}")
-    await edge_tts.Communicate(text, "hi-IN-MadhurNeural", rate="+15%").save(filename)
-    print("Voice generated via Indian Edge-TTS (+15%)!")
+            print("ElevenLabs fallback error:", e)
+
+    from gtts import gTTS
+    gTTS(text=text, lang="hi").save(filename)
+    print("Voice generated via gTTS fallback!")
 
 def get_bg_clips(query, filename="car_bg.mp4"):
     local_clips = []
@@ -168,8 +182,7 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
         bgm_raw = AudioFileClip(random.choice(bgm_candidates))
         opened_audio.append(bgm_raw)
         bgm = concatenate_audioclips([bgm_raw] * (int(duration // bgm_raw.duration) + 1)) if bgm_raw.duration < duration else bgm_raw
-        audio_layers_bgm = bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.13)
-        audio_tracks.append(audio_layers_bgm)
+        audio_tracks.append(bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.13))
 
     if sfx_candidates:
         try:
