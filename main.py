@@ -126,7 +126,7 @@ def generate_script():
         {{"voice": "Hindi sentence 5 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
         {{"voice": "Hindi sentence 6 (5-7 words)", "caption": "COMMENT YOUR GUN"}}
       ],
-      "chosen_clips": ["exact filenames from Gameplay clips"],
+      "chosen_clips": ["1 best matching filename from Gameplay clips"],
       "chosen_meme": "1 exact filename from Ending memes (or empty string)",
       "chosen_sfx": "1 exact filename from Hook SFX (or empty string)",
       "chosen_music": "1 exact filename from Background music (or empty string)"
@@ -192,18 +192,16 @@ async def make_voice(text, filename="voice.mp3"):
 def get_bg_clips(data, filename="bg.mp4"):
     all_local = glob.glob("clips/freefire/*.mp4")
     if all_local:
-        chosen_paths = []
         raw_chosen = data.get("chosen_clips", [])
         if isinstance(raw_chosen, list):
             for name in raw_chosen:
                 candidate = os.path.join("clips", "freefire", os.path.basename(str(name)))
-                if os.path.isfile(candidate) and candidate not in chosen_paths:
-                    chosen_paths.append(candidate)
-        remaining = [p for p in all_local if p not in chosen_paths]
-        random.shuffle(remaining)
-        chosen_paths.extend(remaining[: max(0, 6 - len(chosen_paths))])
-        print("Selected Free Fire clips:", chosen_paths)
-        return chosen_paths[:6]
+                if os.path.isfile(candidate):
+                    print("Selected single Free Fire clip:", candidate)
+                    return [candidate]
+        picked = random.choice(all_local)
+        print("Selected random Free Fire clip:", picked)
+        return [picked]
 
     api_key = os.environ["PIXABAY_API_KEY"].strip()
     query = data.get("search_query", "gaming")
@@ -285,37 +283,35 @@ def build_video(data, bg_paths, output_file="output.mp4"):
         elif sfx_outro_dur > 0.0:
             audio_layers.append(sfx_raw.subclipped(0, sfx_outro_dur).with_volume_scaled(0.80).with_start(duration))
 
-    opened_clips, segments = [], []
+    opened_clips = []
     if bg_paths:
-        target_cut, current_len, idx = 1.8, 0.0, 0
-        while current_len < bg_dur and idx < 30:
-            clip = VideoFileClip(bg_paths[idx % len(bg_paths)]).without_audio()
-            opened_clips.append(clip)
-            if clip.duration <= 0.3:
-                idx += 1
-                continue
-            cut_len = min(target_cut, clip.duration, bg_dur - current_len)
-            max_start = max(0.0, clip.duration - cut_len)
-            start_t = random.uniform(0.0, max_start) if max_start > 0.3 else 0.0
-            seg = clip.subclipped(start_t, start_t + cut_len)
-            bg_fill = seg.resized(height=1920)
-            if bg_fill.w < 1080:
-                bg_fill = bg_fill.resized(width=1080)
-            bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
-            if seg.w >= seg.h:
-                bg_blur = bg_fill.resized(width=80).resized((1080, 1920))
-                dark_veil = ColorClip(size=(1080, 1920), color=(8, 12, 22)).with_opacity(0.62).with_duration(cut_len)
-                fg = seg.resized(width=1080)
-                fg_y = max(360, (1920 - fg.h) // 2 - 110)
-                border = ColorClip(size=(1080, fg.h + 14), color=(220, 38, 38)).with_duration(cut_len).with_position(("center", fg_y - 7))
-                comp_seg = CompositeVideoClip([bg_blur, dark_veil, border, fg.with_position(("center", fg_y))], size=(1080, 1920)).with_duration(cut_len)
-            else:
-                comp_seg = CompositeVideoClip([bg_fill, ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.18).with_duration(cut_len)], size=(1080, 1920)).with_duration(cut_len)
-            segments.append(comp_seg)
-            current_len += cut_len
-            idx += 1
+        primary = VideoFileClip(bg_paths[0]).without_audio()
+        opened_clips.append(primary)
+        if primary.duration < bg_dur:
+            loops = int(bg_dur // max(primary.duration, 0.5)) + 1
+            seg = concatenate_videoclips([primary] * loops).subclipped(0, bg_dur)
+        else:
+            max_st = max(0.0, primary.duration - bg_dur)
+            st = random.uniform(0.0, max_st) if max_st > 0.5 else 0.0
+            seg = primary.subclipped(st, st + bg_dur)
 
-    bg = concatenate_videoclips(segments).subclipped(0, bg_dur) if segments else ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(bg_dur)
+        bg_fill = seg.resized(height=1920)
+        if bg_fill.w < 1080:
+            bg_fill = bg_fill.resized(width=1080)
+        bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
+
+        if seg.w >= seg.h:
+            bg_blur = bg_fill.resized(width=80).resized((1080, 1920))
+            dark_veil = ColorClip(size=(1080, 1920), color=(8, 12, 22)).with_opacity(0.62).with_duration(bg_dur)
+            fg = seg.resized(width=1080)
+            fg_y = max(360, (1920 - fg.h) // 2 - 110)
+            border = ColorClip(size=(1080, fg.h + 14), color=(220, 38, 38)).with_duration(bg_dur).with_position(("center", fg_y - 7))
+            bg = CompositeVideoClip([bg_blur, dark_veil, border, fg.with_position(("center", fg_y))], size=(1080, 1920)).with_duration(bg_dur)
+        else:
+            bg = CompositeVideoClip([bg_fill, ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.18).with_duration(bg_dur)], size=(1080, 1920)).with_duration(bg_dur)
+    else:
+        bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(bg_dur)
+
     banner_bg = ColorClip(size=(960, 130), color=(185, 28, 28)).with_opacity(0.92).with_duration(bg_dur).with_position(("center", 145))
     title_txt = TextClip(font=font_path, text=clean_ascii_caps(data["screen_text"]), font_size=56, color="white", stroke_color="black", stroke_width=4, method="caption", size=(900, None), margin=(0, 10)).with_duration(bg_dur).with_position(("center", 165))
 
