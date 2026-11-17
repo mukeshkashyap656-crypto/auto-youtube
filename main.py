@@ -13,8 +13,24 @@ from moviepy import (
     TextClip, VideoFileClip, concatenate_audioclips, concatenate_videoclips,
 )
 
+HISTORY_FILE = "history_ff.json"
 ANTON_FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"
 FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)[-40:]
+        except Exception:
+            pass
+    return []
+
+def save_history(title):
+    hist = load_history()
+    hist.append(title)
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(hist[-60:], f, ensure_ascii=False, indent=2)
 
 def get_gaming_font():
     for pattern in ("fonts/*.ttf", "*.ttf"):
@@ -72,50 +88,60 @@ def extract_preview_parts(pattern, label, limit=8):
 
 def generate_script():
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
-    themes = [
-        "Secret Red Number Headshot Sensitivity & Fire Button Size Trick",
-        "99% Players Make This Big Mistake in Clash Squad Rank",
-        "MP40 vs M1887 vs UMP: Close Range Ka Asli King Kaun?",
-        "Old Free Fire Rare Facts & Nostalgia That New Players Don't Know",
-        "Fast Crouch Gloo Wall & 1v4 Clutch Pro Secret",
-        "BR Rank Secret Survival & Hidden Pro Strategy",
-        "Free Fire Myth vs Fact That Surprises Pro Players",
-        "Best Gun Skin Without Spending Diamonds (Free Trick)",
-        "Sniper AWM Double Switch Fast Shot Secret",
-        "Low End Phone 2GB/4GB RAM Lag Fix & Smooth Settings",
-        "Top 3 Overpowered Character Combinations for CS Rank Push",
-        "Why Old Peak & Factory Roof Fights Were Legendary",
-        "Rush vs Camp Strategy: How Grandmaster Players Win",
-        "Hidden Movement Speed & Jump Shot Pro Technique",
-        "Rare Evo Gun Facts & Most Underrated Gun in Free Fire",
+    ff_topics = [
+        "One-Tap Headshot Sensitivity (2GB/4GB/6GB/8GB RAM)",
+        "Fire Button Size & DPI Secret for Red Numbers",
+        "MP40 vs M1887 vs UMP Close Range King",
+        "AWM vs M82B Double Sniper Fast Switch Trick",
+        "Woodpecker vs AC80 vs Desert Eagle One-Tap",
+        "Best CS Rank Character Skill Combination",
+        "BR Rank Solo Push Hidden Survival Strategy",
+        "Tatsuya, Orion, Sonia, Alok & Chrono Secret Use",
+        "Fast Crouch Gloo Wall & Jump Shot Pro Trick",
+        "Old Free Fire (2018-2019) vs New Free Fire Nostalgia",
+        "Old Peak & Factory Roof Fights Rare Facts",
+        "Free Gun Skin & Pro Gameplay Without Diamonds",
+        "99% Players Make This Mistake in 1v4 Clutch",
+        "Low End Phone Lag Fix & Ultra Smooth Settings",
+        "Free Fire Secret Myth Buster That Shocks Players",
+        "Evo Gun vs Normal Skin Real Damage Truth",
     ]
-    chosen_theme = random.choice(themes)
-    today_str = time.strftime("%d %B %Y")
+    ff_angles = [
+        "Secret Setting That Pros Never Share",
+        "Shocking Comparison & Comment Battle",
+        "3 Mistakes Ruining Your Rank Push",
+        "Rare Fact 99% Players Don't Know",
+        "Best Trick After New Update",
+    ]
+    chosen_topic = f"{random.choice(ff_topics)} — {random.choice(ff_angles)}"
+    past = load_history()
+
     avail_clips, clip_parts = extract_preview_parts("clips/freefire/*.mp4", "Gameplay Clip", limit=8)
     avail_memes, meme_parts = extract_preview_parts("memes/*.mp4", "Ending Meme", limit=6)
     avail_sfx = list_files(["sfx/*.mp3", "sfx/*.wav"])
     avail_music = list_files(["music/*.mp3", "sfx/*.mp3"])
 
     prompt = f"""
-    Today is {today_str}. You are a viral Indian Free Fire YouTube Shorts director & scriptwriter.
-    Look at the Gameplay Clip previews and Ending Meme previews above.
-    Create a fast-paced 18-second Short on: "{chosen_theme}".
+    Today is {time.strftime("%d %B %Y %H:%M")} (Run #{random.randint(1000,9999)}).
+    You are a top Indian Free Fire YouTube Shorts creator. Create a super searchable, high-CTR 18-second Hindi Short on: "{chosen_topic}".
+    FORBIDDEN (Already uploaded, NEVER repeat or write similar titles): {past}
     Available files:
     - Gameplay clips: {avail_clips if avail_clips else ["NONE"]}
     - Ending memes: {avail_memes if avail_memes else ["NONE"]}
     - Hook SFX: {avail_sfx if avail_sfx else ["NONE"]}
     - Background music: {avail_music if avail_music else ["NONE"]}
     Rules:
-    - Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
-    - Do NOT fake play-by-play commentary; give crisp pro tips/facts/battles!
-    - Keep total voiceover 35-44 words in natural energetic Hindi (Devanagari script).
-    - Last segment MUST ask viewers a comment question (e.g., "MP40 ya M1887 comment karo!").
+    - Start immediately with a shocking 2-second curiosity/search hook (NO "Hello doston", NO intro).
+    - Do NOT fake play-by-play commentary; give crisp viral tips, comparisons, or facts!
+    - Keep total voiceover 35-44 words in energetic conversational Hindi (Devanagari script).
+    - Last segment MUST trigger comments (e.g., "Aapki favourite gun kaunsi hai comment karo!").
+    - "title" MUST use searchable Hinglish keywords + max 3 hashtags (#freefire #freefireshorts #shorts).
     - "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
     - Return ONLY valid JSON:
     {{
-      "title": "Catchy Hinglish title under 58 chars with #shorts #freefire",
-      "description": "2 lines gaming description with #freefire #freefireindia #freefireshorts #shorts",
-      "tags": ["freefire", "freefireshorts", "headshot", "gaming", "shorts"],
+      "title": "Searchable Hinglish title under 60 chars #freefire #shorts",
+      "description": "2 line SEO description with #freefire #freefireindia #freefireshorts #shorts",
+      "tags": ["freefire", "freefireshorts", "freefireindia", "headshot", "shorts"],
       "search_query": "gaming neon",
       "screen_text": "3 TO 5 WORDS CAPS HOOK",
       "segments": [
@@ -124,7 +150,7 @@ def generate_script():
         {{"voice": "Hindi sentence 3 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
         {{"voice": "Hindi sentence 4 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
         {{"voice": "Hindi sentence 5 (5-7 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi sentence 6 (5-7 words)", "caption": "COMMENT YOUR GUN"}}
+        {{"voice": "Hindi sentence 6 (5-7 words)", "caption": "COMMENT YOUR PICK"}}
       ],
       "chosen_clips": ["1 best matching filename from Gameplay clips"],
       "chosen_meme": "1 exact filename from Ending memes (or empty string)",
@@ -141,11 +167,9 @@ def generate_script():
             response = client.models.generate_content(
                 model=model_name,
                 contents=req_contents,
-                config=types.GenerateContentConfig(response_mime_type="application/json"),
+                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=1.25, top_p=0.95),
             )
-            text = response.text.strip()
-            if text.startswith("```"):
-                text = text.strip("`").replace("json", "", 1).strip()
+            text = re.sub(r"^```json\s*|\s*```$", "", response.text.strip(), flags=re.MULTILINE)
             data = json.loads(text)
             if data.get("segments"):
                 print("Script generated using:", model_name)
@@ -197,11 +221,8 @@ def get_bg_clips(data, filename="bg.mp4"):
             for name in raw_chosen:
                 candidate = os.path.join("clips", "freefire", os.path.basename(str(name)))
                 if os.path.isfile(candidate):
-                    print("Selected single Free Fire clip:", candidate)
                     return [candidate]
-        picked = random.choice(all_local)
-        print("Selected random Free Fire clip:", picked)
-        return [picked]
+        return [random.choice(all_local)]
 
     api_key = os.environ["PIXABAY_API_KEY"].strip()
     query = data.get("search_query", "gaming")
@@ -378,3 +399,4 @@ if __name__ == "__main__":
     bg_paths = get_bg_clips(data)
     build_video(data, bg_paths)
     upload_video("output.mp4", data)
+    save_history(data["title"])
