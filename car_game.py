@@ -12,8 +12,24 @@ from moviepy import (
     ImageClip, TextClip, VideoFileClip, concatenate_audioclips, concatenate_videoclips,
 )
 
+HISTORY_FILE = "history_car.json"
 ANTON_FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"
 FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)[-40:]
+        except Exception:
+            pass
+    return []
+
+def save_history(title):
+    hist = load_history()
+    hist.append(title)
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(hist[-60:], f, ensure_ascii=False, indent=2)
 
 def get_gaming_font():
     for pattern in ("fonts/*.ttf", "*.ttf"):
@@ -39,33 +55,43 @@ def clean_ascii_caps(txt):
 
 def generate_script():
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
-    themes = [
-        "Bugatti Chiron vs Koenigsegg Jesko: Asli Zindagi Mein Kaun Tez Hai?",
-        "GTA 6 ki 3 Aisi Supercars Jo Real Life Mein 30 Crore Se Mehengi Hain!",
-        "Supra MK4 vs Nissan GTR R35: Kaun Hai Asli JDM King?",
-        "99% Gamers Nitro aur Drift Timing Mein Yeh Galti Karte Hain!",
-        "Lamborghini Revuelto vs Ferrari SF90: Kaun Hai Asli Track Monster?",
-        "Duniya ki 3 Sabse Mehengi Supercars Jo Sirf Racing Games Mein Chala Sakte Ho!",
-        "Porsche 911 GT3 RS vs Bugatti: Corners Mein Kaun Jeetega?",
-        "F1 Car vs Supercar: 0 se 300 KMPH Race Mein Kaun Jeetega?",
-        "GTA 6 Car Physics vs GTA 5: 3 Bade Badlav Jo Sabko Chaunka Denge!",
-        "Real Life Car Crash vs Gaming Physics: Kaunsa Zyada Khatarnak Hai?",
+    cars = [
+        "GTA 6 Supercars", "Bugatti Tourbillon", "Koenigsegg Jesko Absolut", "Toyota Supra MK4",
+        "Nissan GTR R35", "Lamborghini Revuelto", "Ferrari SF90 XX", "Porsche 911 GT3 RS",
+        "Pagani Utopia", "McLaren Senna", "Rimac Nevera", "Hennessey Venom F5",
+        "Aston Martin Valkyrie", "BMW M4 Competition", "Dodge Challenger Demon", "Mercedes AMG One",
+        "Ford Mustang Dark Horse", "Audi R8 V10", "Bugatti Bolide", "Indian Gamers Supercar Collection",
     ]
-    chosen_theme = random.choice(themes)
-    today_str = time.strftime("%d %B %Y")
+    angles = [
+        "Top Speed & 0-100 KMPH World Record Shock",
+        "1v1 Battle vs Closest Rival (Comment War)",
+        "Real Price in Crores & Crazy Service Cost in Lakhs",
+        "GTA 6 vs GTA 5 Car Physics & Speed Upgrade",
+        "Hidden Engineering Secret 99% Log Nahi Jaante",
+        "F1 Car vs Hypercar Race Truth",
+        "Exhaust Sound & Turbo Flutter Crazy Facts",
+        "Drift Control & Racing Game Pro Secret",
+    ]
+    c1, c2 = random.sample(cars, 2)
+    angle = random.choice(angles)
+    past = load_history()
+
     prompt = f"""
-    Today is {today_str}. Create a super engaging, viral 18-second Indian Supercar & Gaming Facts YouTube Short on: "{chosen_theme}".
+    Today is {time.strftime("%d %B %Y %H:%M")} (Run #{random.randint(1000,9999)}).
+    You are a top Indian Supercar & Car Gaming YouTube Shorts creator. Create a super searchable, high-CTR 18-second Hindi Short on: "{c1}" (or "{c1} vs {c2}") with angle: "{angle}".
+    FORBIDDEN (Already uploaded, NEVER repeat or write similar titles): {past}
     Rules:
-    - Do NOT do fake live play-by-play commentary. Deliver mind-blowing facts, comparisons, and pro secrets!
+    - Do NOT do fake live play-by-play commentary. Deliver mind-blowing facts, Crore prices, comparisons, and gaming secrets!
     - Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
     - Keep total voiceover 36-44 words in energetic conversational Hindi (Devanagari script).
-    - Last segment MUST ask viewers to pick a side or comment their favorite car.
+    - Last segment MUST trigger comments ("Aapki dream car kaunsi hai comment karo!").
+    - "title" MUST use searchable Hinglish keywords + max 3 hashtags (#supercars #cargaming #shorts).
     - "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
     - Return ONLY valid JSON:
     {{
-      "title": "Catchy Hinglish title under 58 chars with #shorts #supercars #cargaming",
-      "description": "2 line car gaming description with #cargaming #gta6 #supercars #shorts",
-      "tags": ["cargaming", "supercars", "gta6", "bugatti", "shorts"],
+      "title": "Searchable Hinglish title under 60 chars #supercars #shorts",
+      "description": "2 line SEO description with #cargaming #gta6 #supercars #shorts",
+      "tags": ["cargaming", "supercars", "gta6", "supra", "shorts"],
       "search_query": "sports car",
       "screen_text": "3 TO 5 WORDS CAPS HOOK",
       "segments": [
@@ -74,7 +100,7 @@ def generate_script():
         {{"voice": "Hindi fact line 3 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
         {{"voice": "Hindi fact line 4 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
         {{"voice": "Hindi fact line 5 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi CTA line 6 (5-7 words)", "caption": "COMMENT YOUR PICK"}}
+        {{"voice": "Hindi CTA line 6 (5-7 words)", "caption": "COMMENT YOUR CAR"}}
       ]
     }}
     """
@@ -86,11 +112,9 @@ def generate_script():
             response = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json"),
+                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=1.25, top_p=0.95),
             )
-            text = response.text.strip()
-            if text.startswith("```"):
-                text = text.strip("`").replace("json", "", 1).strip()
+            text = re.sub(r"^```json\s*|\s*```$", "", response.text.strip(), flags=re.MULTILINE)
             data = json.loads(text)
             if data.get("segments"):
                 print("Script generated using:", model_name)
@@ -141,9 +165,7 @@ def get_bg_clips(query, filename="car_bg.mp4"):
             local_clips.extend(glob.glob(os.path.join(folder, ext)))
     local_clips = list(dict.fromkeys(local_clips))
     if local_clips:
-        chosen = random.choice(local_clips)
-        print("Using single car clip:", chosen)
-        return [chosen]
+        return [random.choice(local_clips)]
 
     api_key = os.environ["PIXABAY_API_KEY"].strip()
     hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": query, "per_page": 6}, timeout=30).json().get("hits", [])
@@ -300,3 +322,4 @@ if __name__ == "__main__":
     bg_paths = get_bg_clips(data.get("search_query", "sports car"))
     build_video(data, bg_paths)
     upload_video("car_output.mp4", data)
+    save_history(data["title"])
