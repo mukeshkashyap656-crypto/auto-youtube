@@ -1,9 +1,9 @@
-name: Auto Car Game Shorts
+name: Auto Car Gaming Shorts
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 8 * * *'
+    - cron: '3 9 * * *' # Dopahar 2:33 PM IST start (~2:40 PM IST upload)
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-and-upload-car:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -33,7 +33,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-        run: python car_game.py
+        run: python -u car.py
       - name: Save Topic History
         run: |
           git config user.name "github-actions[bot]"
