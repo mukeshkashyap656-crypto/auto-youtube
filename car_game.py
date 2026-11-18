@@ -165,17 +165,20 @@ def get_bg_clips(query, filename="car_bg.mp4"):
     api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
     if not api_key:
         return []
-    hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": query, "per_page": 6}, timeout=25).json().get("hits", [])
-    if not hits:
-        hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": "sports car", "per_page": 6}, timeout=25).json().get("hits", [])
-    if hits:
-        videos = random.choice(hits).get("videos", {})
-        for quality in ("small", "tiny", "medium", "large"):
-            if quality in videos and videos[quality].get("url"):
-                print(f"Downloading Pixabay car bg ({quality})...")
-                with open(filename, "wb") as f:
-                    f.write(requests.get(videos[quality]["url"], timeout=45).content)
-                return [filename]
+    try:
+        hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": query, "per_page": 6}, timeout=25).json().get("hits", [])
+        if not hits:
+            hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": "sports car", "per_page": 6}, timeout=25).json().get("hits", [])
+        if hits:
+            videos = random.choice(hits).get("videos", {})
+            for quality in ("small", "tiny", "medium", "large"):
+                if quality in videos and videos[quality].get("url"):
+                    print(f"Downloading Pixabay car bg ({quality})...")
+                    with open(filename, "wb") as f:
+                        f.write(requests.get(videos[quality]["url"], timeout=45).content)
+                    return [filename]
+    except Exception as e:
+        print("Pixabay fallback skipped:", e)
     return []
 
 
