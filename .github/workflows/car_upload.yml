@@ -33,7 +33,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-        run: python -u car.py
+        run: python -u car_game.py
       - name: Save Topic History
         run: |
           git config user.name "github-actions[bot]"
