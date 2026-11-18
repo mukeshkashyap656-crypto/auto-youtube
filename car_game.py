@@ -1,6 +1,5 @@
-import asyncio, glob, json, os, random, re, time
-import requests
-import edge_tts
+import asyncio, glob, json, os, random, re, sys, time
+import requests, edge_tts
 from google import genai
 from google.genai import types
 from google.oauth2.credentials import Credentials
@@ -12,9 +11,13 @@ from moviepy import (
     ImageClip, TextClip, VideoFileClip, concatenate_audioclips, concatenate_videoclips,
 )
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+
 HISTORY_FILE = "history_car.json"
 ANTON_FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"
 FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -25,11 +28,13 @@ def load_history():
             pass
     return []
 
+
 def save_history(title):
     hist = load_history()
     hist.append(title)
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(hist[-60:], f, ensure_ascii=False, indent=2)
+
 
 def get_gaming_font():
     for pattern in ("fonts/*.ttf", "*.ttf"):
@@ -49,9 +54,10 @@ def get_gaming_font():
         pass
     return FALLBACK_FONT
 
+
 def clean_ascii_caps(txt):
-    cleaned = re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper()
-    return cleaned or "CAR GAMING"
+    return re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper() or "CAR GAMING"
+
 
 def generate_script():
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
@@ -74,36 +80,22 @@ def generate_script():
     ]
     c1, c2 = random.sample(cars, 2)
     angle = random.choice(angles)
+    print(f"Topic: {c1} vs {c2} | {angle}")
     past = load_history()
 
-    prompt = f"""
-    Today is {time.strftime("%d %B %Y %H:%M")} (Run #{random.randint(1000,9999)}).
-    You are a top Indian Supercar & Car Gaming YouTube Shorts creator. Create a super searchable, high-CTR 18-second Hindi Short on: "{c1}" (or "{c1} vs {c2}") with angle: "{angle}".
-    FORBIDDEN (Already uploaded, NEVER repeat or write similar titles): {past}
-    Rules:
-    - Do NOT do fake live play-by-play commentary. Deliver mind-blowing facts, Crore prices, comparisons, and gaming secrets!
-    - Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
-    - Keep total voiceover 36-44 words in energetic conversational Hindi (Devanagari script).
-    - Last segment MUST trigger comments ("Aapki dream car kaunsi hai comment karo!").
-    - "title" MUST use searchable Hinglish keywords + max 3 hashtags (#supercars #cargaming #shorts).
-    - "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
-    - Return ONLY valid JSON:
-    {{
-      "title": "Searchable Hinglish title under 60 chars #supercars #shorts",
-      "description": "2 line SEO description with #cargaming #gta6 #supercars #shorts",
-      "tags": ["cargaming", "supercars", "gta6", "supra", "shorts"],
-      "search_query": "sports car",
-      "screen_text": "3 TO 5 WORDS CAPS HOOK",
-      "segments": [
-        {{"voice": "Hindi fact line 1 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi fact line 2 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi fact line 3 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi fact line 4 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi fact line 5 (6-7 words)", "caption": "2-3 WORDS CAPS"}},
-        {{"voice": "Hindi CTA line 6 (5-7 words)", "caption": "COMMENT YOUR CAR"}}
-      ]
-    }}
-    """
+    prompt = f"""Today is {time.strftime("%d %B %Y %H:%M")} (Run #{random.randint(1000,9999)}).
+You are a top Indian Supercar & Car Gaming YouTube Shorts creator. Create a super searchable, high-CTR 18-second Hindi Short on: "{c1}" (or "{c1} vs {c2}") with angle: "{angle}".
+FORBIDDEN (Already uploaded, NEVER repeat or write similar titles): {past}
+Rules:
+- Do NOT do fake live play-by-play commentary. Deliver mind-blowing facts, Crore prices, comparisons, and gaming secrets!
+- Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
+- Keep total voiceover 36-44 words in energetic conversational Hindi (Devanagari script).
+- Last segment MUST trigger comments ("Aapki dream car kaunsi hai comment karo!").
+- "title" MUST use searchable Hinglish keywords + max 3 hashtags (#supercars #cargaming #shorts).
+- "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
+- Return ONLY valid JSON:
+{{"title":"Searchable Hinglish title under 60 chars #supercars #shorts","description":"2 line SEO description with #cargaming #gta6 #supercars #shorts","tags":["cargaming","supercars","gta6","supra","shorts"],"search_query":"sports car","screen_text":"3 TO 5 WORDS CAPS HOOK","segments":[{{"voice":"Hindi fact line 1 (6-7 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi fact line 2 (6-7 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi fact line 3 (6-7 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi fact line 4 (6-7 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi fact line 5 (6-7 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi CTA line 6 (5-7 words)","caption":"COMMENT YOUR CAR"}}]}}"""
+
     models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"]
     last_err = None
     for attempt in range(4):
@@ -112,7 +104,7 @@ def generate_script():
             response = client.models.generate_content(
                 model=model_name,
                 contents=prompt,
-                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=1.25, top_p=0.95),
+                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0, top_p=0.95),
             )
             text = re.sub(r"^```json\s*|\s*```$", "", response.text.strip(), flags=re.MULTILINE)
             data = json.loads(text)
@@ -125,10 +117,11 @@ def generate_script():
             time.sleep(5)
     raise last_err
 
+
 async def make_voice(text, filename="car_voice.mp3"):
     for voice_name, rate in [("hi-IN-MadhurNeural", "+15%"), ("hi-IN-SwaraNeural", "+15%"), ("hi-IN-MadhurNeural", "+0%")]:
         try:
-            await edge_tts.Communicate(text, voice_name, rate=rate).save(filename)
+            await asyncio.wait_for(edge_tts.Communicate(text, voice_name, rate=rate).save(filename), timeout=25)
             if os.path.exists(filename) and os.path.getsize(filename) > 1000:
                 print(f"Voice generated via Edge-TTS ({voice_name})!")
                 return
@@ -151,12 +144,14 @@ async def make_voice(text, filename="car_voice.mp3"):
                     f.write(res.content)
                 print("Voice generated via ElevenLabs fallback!")
                 return
+            print(f"ElevenLabs error ({res.status_code}): {res.text[:150]}")
         except Exception as e:
             print("ElevenLabs fallback error:", e)
 
     from gtts import gTTS
     gTTS(text=text, lang="hi").save(filename)
     print("Voice generated via gTTS fallback!")
+
 
 def get_bg_clips(query, filename="car_bg.mp4"):
     local_clips = []
@@ -167,20 +162,25 @@ def get_bg_clips(query, filename="car_bg.mp4"):
     if local_clips:
         return [random.choice(local_clips)]
 
-    api_key = os.environ["PIXABAY_API_KEY"].strip()
-    hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": query, "per_page": 6}, timeout=30).json().get("hits", [])
+    api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
+    if not api_key:
+        return []
+    hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": query, "per_page": 6}, timeout=25).json().get("hits", [])
     if not hits:
-        hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": "sports car", "per_page": 6}, timeout=30).json().get("hits", [])
+        hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": "sports car", "per_page": 6}, timeout=25).json().get("hits", [])
     if hits:
         videos = random.choice(hits).get("videos", {})
-        for quality in ("medium", "small", "large", "tiny"):
+        for quality in ("small", "tiny", "medium", "large"):
             if quality in videos and videos[quality].get("url"):
+                print(f"Downloading Pixabay car bg ({quality})...")
                 with open(filename, "wb") as f:
-                    f.write(requests.get(videos[quality]["url"], timeout=60).content)
+                    f.write(requests.get(videos[quality]["url"], timeout=45).content)
                 return [filename]
     return []
 
+
 def build_video(data, bg_paths, output_file="car_output.mp4"):
+    print("Building Car video...")
     font_path = get_gaming_font()
     voice = AudioFileClip("car_voice.mp3").with_volume_scaled(1.25)
     duration = voice.duration
@@ -229,26 +229,27 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
             clean_clip = primary
 
         if clean_clip.duration < duration:
-            loops = int(duration // max(clean_clip.duration, 0.5)) + 1
-            seg = concatenate_videoclips([clean_clip] * loops).subclipped(0, duration)
+            seg = concatenate_videoclips([clean_clip] * (int(duration // max(clean_clip.duration, 0.5)) + 1)).subclipped(0, duration)
         else:
             max_st = max(0.0, clean_clip.duration - duration)
             st = random.uniform(0.0, max_st) if max_st > 0.5 else 0.0
             seg = clean_clip.subclipped(st, st + duration)
 
-        bg_fill = seg.resized(height=1920)
-        if bg_fill.w < 1080:
-            bg_fill = bg_fill.resized(width=1080)
-        bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
-
         if seg.w >= seg.h:
-            bg_blur = bg_fill.resized(width=80).resized((1080, 1920))
+            bg_small = seg.resized(height=142)
+            if bg_small.w < 80:
+                bg_small = bg_small.resized(width=80)
+            bg_blur = bg_small.cropped(x_center=bg_small.w / 2, y_center=bg_small.h / 2, width=80, height=142).resized((1080, 1920))
             dark_veil = ColorClip(size=(1080, 1920), color=(8, 12, 22)).with_opacity(0.62).with_duration(duration)
             fg = seg.resized(width=1080)
             fg_y = max(360, (1920 - fg.h) // 2 - 110)
             border = ColorClip(size=(1080, fg.h + 14), color=(220, 38, 38)).with_duration(duration).with_position(("center", fg_y - 7))
             bg = CompositeVideoClip([bg_blur, dark_veil, border, fg.with_position(("center", fg_y))], size=(1080, 1920)).with_duration(duration)
         else:
+            bg_fill = seg.resized(height=1920)
+            if bg_fill.w < 1080:
+                bg_fill = bg_fill.resized(width=1080)
+            bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
             bg = CompositeVideoClip([bg_fill, ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.18).with_duration(duration)], size=(1080, 1920)).with_duration(duration)
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(duration)
@@ -284,8 +285,8 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
         except Exception as e:
             print("Meme skipped:", e)
 
-    final_audio = CompositeAudioClip(audio_tracks) if len(audio_tracks) > 1 else voice
-    final = CompositeVideoClip([bg, banner_bg, title_txt, *meme_overlays, *caption_clips]).with_audio(final_audio)
+    final_audio = (CompositeAudioClip(audio_tracks) if len(audio_tracks) > 1 else voice).with_duration(duration)
+    final = CompositeVideoClip([bg, banner_bg, title_txt, *meme_overlays, *caption_clips], size=(1080, 1920)).with_duration(duration).with_audio(final_audio)
     final.write_videofile(output_file, fps=24, codec="libx264", audio_codec="aac", preset="ultrafast", threads=4)
 
     for a in opened_audio:
@@ -294,7 +295,9 @@ def build_video(data, bg_paths, output_file="car_output.mp4"):
         c.close()
     final.close()
 
+
 def upload_video(video_file, data):
+    print("Uploading Car video to YouTube...")
     creds = Credentials(
         token=None,
         refresh_token=os.environ["YT_REFRESH_TOKEN_CAR"].strip(),
@@ -314,6 +317,7 @@ def upload_video(video_file, data):
         media_body=MediaFileUpload(video_file, chunksize=-1, resumable=True),
     )
     print("SUCCESS! Car Video Uploaded. ID:", request.execute()["id"])
+
 
 if __name__ == "__main__":
     data = generate_script()
