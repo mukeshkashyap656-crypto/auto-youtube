@@ -1,4 +1,4 @@
-import asyncio, glob, io, json, os, random, re, time
+import asyncio, glob, io, json, os, random, re, sys, time
 import requests
 import edge_tts
 from PIL import Image
@@ -13,9 +13,13 @@ from moviepy import (
     TextClip, VideoFileClip, concatenate_audioclips, concatenate_videoclips,
 )
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+
 HISTORY_FILE = "history_ff.json"
 ANTON_FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"
 FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -26,11 +30,13 @@ def load_history():
             pass
     return []
 
+
 def save_history(title):
     hist = load_history()
     hist.append(title)
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(hist[-60:], f, ensure_ascii=False, indent=2)
+
 
 def get_gaming_font():
     for pattern in ("fonts/*.ttf", "*.ttf"):
@@ -50,15 +56,18 @@ def get_gaming_font():
         pass
     return FALLBACK_FONT
 
+
 def clean_ascii_caps(txt):
     cleaned = re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper()
     return cleaned or "FREE FIRE"
+
 
 def list_files(patterns):
     files = []
     for pat in patterns:
         files.extend(glob.glob(pat))
     return [os.path.basename(p) for p in sorted(set(files))]
+
 
 def extract_preview_parts(pattern, label, limit=8):
     files = glob.glob(pattern)
@@ -85,6 +94,7 @@ def extract_preview_parts(pattern, label, limit=8):
             if c is not None:
                 c.close()
     return names, parts
+
 
 def generate_script():
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
@@ -114,12 +124,13 @@ def generate_script():
         "Best Trick After New Update",
     ]
     chosen_topic = f"{random.choice(ff_topics)} — {random.choice(ff_angles)}"
+    print("Topic:", chosen_topic)
     past = load_history()
 
     avail_clips, clip_parts = extract_preview_parts("clips/freefire/*.mp4", "Gameplay Clip", limit=8)
     avail_memes, meme_parts = extract_preview_parts("memes/*.mp4", "Ending Meme", limit=6)
     avail_sfx = list_files(["sfx/*.mp3", "sfx/*.wav"])
-    avail_music = list_files(["music/*.mp3", "sfx/*.mp3"])
+    avail_music = list_files(["music/*.mp3", "music/*.wav", "music/*.m4a", "sfx/*.mp3", "sfx/*.wav", "sfx/*.m4a"])
 
     prompt = f"""
     Today is {time.strftime("%d %B %Y %H:%M")} (Run #{random.randint(1000,9999)}).
@@ -167,7 +178,7 @@ def generate_script():
             response = client.models.generate_content(
                 model=model_name,
                 contents=req_contents,
-                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=1.25, top_p=0.95),
+                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0, top_p=0.95),
             )
             text = re.sub(r"^```json\s*|\s*```$", "", response.text.strip(), flags=re.MULTILINE)
             data = json.loads(text)
@@ -180,10 +191,11 @@ def generate_script():
             time.sleep(5)
     raise last_err
 
+
 async def make_voice(text, filename="voice.mp3"):
     for voice_name, rate in [("hi-IN-MadhurNeural", "+15%"), ("hi-IN-SwaraNeural", "+15%"), ("hi-IN-MadhurNeural", "+0%")]:
         try:
-            await edge_tts.Communicate(text, voice_name, rate=rate).save(filename)
+            await asyncio.wait_for(edge_tts.Communicate(text, voice_name, rate=rate).save(filename), timeout=25)
             if os.path.exists(filename) and os.path.getsize(filename) > 1000:
                 print(f"Voice generated via Edge-TTS ({voice_name})!")
                 return
@@ -206,12 +218,14 @@ async def make_voice(text, filename="voice.mp3"):
                     f.write(res.content)
                 print("Voice generated via ElevenLabs fallback!")
                 return
+            print(f"ElevenLabs error ({res.status_code}): {res.text[:150]}")
         except Exception as e:
             print("ElevenLabs fallback error:", e)
 
     from gtts import gTTS
     gTTS(text=text, lang="hi").save(filename)
     print("Voice generated via gTTS fallback!")
+
 
 def get_bg_clips(data, filename="bg.mp4"):
     all_local = glob.glob("clips/freefire/*.mp4")
@@ -224,19 +238,23 @@ def get_bg_clips(data, filename="bg.mp4"):
                     return [candidate]
         return [random.choice(all_local)]
 
-    api_key = os.environ["PIXABAY_API_KEY"].strip()
+    api_key = os.environ.get("PIXABAY_API_KEY", "").strip()
+    if not api_key:
+        return []
     query = data.get("search_query", "gaming")
     hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": query, "per_page": 5}, timeout=30).json().get("hits", [])
     if not hits:
         hits = requests.get("https://pixabay.com/api/videos/", params={"key": api_key, "q": "gaming", "per_page": 5}, timeout=30).json().get("hits", [])
     if hits:
         videos = random.choice(hits).get("videos", {})
-        for quality in ("medium", "small", "large", "tiny"):
+        for quality in ("small", "tiny", "medium", "large"):
             if quality in videos and videos[quality].get("url"):
+                print(f"Downloading Pixabay bg ({quality})...")
                 with open(filename, "wb") as f:
-                    f.write(requests.get(videos[quality]["url"], timeout=60).content)
+                    f.write(requests.get(videos[quality]["url"], timeout=45).content)
                 return [filename]
     return []
+
 
 def pick_smart_file(folders, ai_choice, extensions, min_dur=None, max_dur=None):
     all_files = []
@@ -265,7 +283,9 @@ def pick_smart_file(folders, ai_choice, extensions, min_dur=None, max_dur=None):
                 return vf
     return random.choice(valid_files)
 
+
 def build_video(data, bg_paths, output_file="output.mp4"):
+    print("Building video...")
     font_path = get_gaming_font()
     voice = AudioFileClip("voice.mp3").with_volume_scaled(1.25)
     duration = voice.duration
@@ -316,19 +336,21 @@ def build_video(data, bg_paths, output_file="output.mp4"):
             st = random.uniform(0.0, max_st) if max_st > 0.5 else 0.0
             seg = primary.subclipped(st, st + bg_dur)
 
-        bg_fill = seg.resized(height=1920)
-        if bg_fill.w < 1080:
-            bg_fill = bg_fill.resized(width=1080)
-        bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
-
         if seg.w >= seg.h:
-            bg_blur = bg_fill.resized(width=80).resized((1080, 1920))
+            bg_small = seg.resized(height=142)
+            if bg_small.w < 80:
+                bg_small = bg_small.resized(width=80)
+            bg_blur = bg_small.cropped(x_center=bg_small.w / 2, y_center=bg_small.h / 2, width=80, height=142).resized((1080, 1920))
             dark_veil = ColorClip(size=(1080, 1920), color=(8, 12, 22)).with_opacity(0.62).with_duration(bg_dur)
             fg = seg.resized(width=1080)
             fg_y = max(360, (1920 - fg.h) // 2 - 110)
             border = ColorClip(size=(1080, fg.h + 14), color=(220, 38, 38)).with_duration(bg_dur).with_position(("center", fg_y - 7))
             bg = CompositeVideoClip([bg_blur, dark_veil, border, fg.with_position(("center", fg_y))], size=(1080, 1920)).with_duration(bg_dur)
         else:
+            bg_fill = seg.resized(height=1920)
+            if bg_fill.w < 1080:
+                bg_fill = bg_fill.resized(width=1080)
+            bg_fill = bg_fill.cropped(x_center=bg_fill.w / 2, y_center=bg_fill.h / 2, width=1080, height=1920)
             bg = CompositeVideoClip([bg_fill, ColorClip(size=(1080, 1920), color=(0, 0, 0)).with_opacity(0.18).with_duration(bg_dur)], size=(1080, 1920)).with_duration(bg_dur)
     else:
         bg = ColorClip(size=(1080, 1920), color=(15, 23, 42)).with_duration(bg_dur)
@@ -371,7 +393,9 @@ def build_video(data, bg_paths, output_file="output.mp4"):
         c.close()
     final.close()
 
+
 def upload_video(video_file, data):
+    print("Uploading to YouTube...")
     creds = Credentials(
         token=None,
         refresh_token=os.environ["YT_REFRESH_TOKEN"].strip(),
@@ -391,6 +415,7 @@ def upload_video(video_file, data):
         media_body=MediaFileUpload(video_file, chunksize=-1, resumable=True),
     )
     print("SUCCESS! Video Uploaded. ID:", request.execute()["id"])
+
 
 if __name__ == "__main__":
     data = generate_script()
