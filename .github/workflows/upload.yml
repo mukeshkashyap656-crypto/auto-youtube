@@ -3,7 +3,7 @@ name: Auto YouTube Shorts
 on:
   workflow_dispatch:
   schedule:
-    - cron: '27 8 * * *'
+    - cron: '23 8 * * *' # Dopahar 1:53 PM IST (~2:00 PM IST upload)
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -33,7 +33,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-        run: python main.py
+        run: python -u main.py
       - name: Save Topic History
         run: |
           git config user.name "github-actions[bot]"
