@@ -1,6 +1,7 @@
-import asyncio, base64, glob, json, math, os, random, re, time
+import asyncio, base64, glob, json, math, os, random, re, sys, time
 from datetime import datetime, timedelta, timezone
 import numpy as np
+from PIL import Image
 import requests
 import edge_tts
 from google import genai
@@ -15,8 +16,13 @@ from moviepy import (
     concatenate_videoclips, vfx,
 )
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
+
+RESAMPLE_BILINEAR = getattr(Image, "Resampling", Image).BILINEAR
 ANTON_FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"
 FALLBACK_FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+
 
 def get_font():
     for pattern in ("fonts/*.ttf", "*.ttf"):
@@ -36,9 +42,11 @@ def get_font():
         pass
     return FALLBACK_FONT
 
+
 def clean_ascii_caps(txt):
     cleaned = re.sub(r"[^\x20-\x7E]", "", str(txt)).strip().upper()
     return cleaned or "BHAKTI KATHA"
+
 
 def get_today_bhagwan_topic():
     ist_now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
@@ -88,6 +96,7 @@ def get_today_bhagwan_topic():
     }
     day_label, options = day_topics[ist_now.weekday()]
     return day_label, random.choice(options)
+
 
 def generate_katha():
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
@@ -142,6 +151,7 @@ def generate_katha():
             time.sleep(5)
     raise last_err
 
+
 def fetch_pixabay_bg_video(filename="katha_bg_motion.mp4"):
     local_clips = []
     for ext in ("*.mp4", "*.mov", "*.mkv"):
@@ -155,20 +165,25 @@ def fetch_pixabay_bg_video(filename="katha_bg_motion.mp4"):
     random.shuffle(queries)
     for q in queries:
         try:
-            res = requests.get("https://pixabay.com/api/videos/", params={"key": pixabay_key, "q": q, "per_page": 8}, timeout=25).json()
+            res = requests.get(
+                "https://pixabay.com/api/videos/",
+                params={"key": pixabay_key, "q": q, "per_page": 8},
+                timeout=25,
+            ).json()
             hits = res.get("hits", [])
             if hits:
                 videos = random.choice(hits).get("videos", {})
-                for quality in ("medium", "small", "tiny"):
+                for quality in ("small", "tiny", "medium"):
                     url = videos.get(quality, {}).get("url")
                     if url:
-                        print(f"Downloaded Pixabay backdrop ({q})")
+                        print(f"Downloading Pixabay backdrop ({q}, {quality})...")
                         with open(filename, "wb") as f:
-                            f.write(requests.get(url, timeout=60).content)
+                            f.write(requests.get(url, timeout=45).content)
                         return filename
         except Exception as e:
             print(f"Pixabay query '{q}' skipped:", e)
     return None
+
 
 def make_cartoon_images(scene_prompts):
     cf_account = os.environ["CF_ACCOUNT_ID"].strip()
@@ -181,9 +196,13 @@ def make_cartoon_images(scene_prompts):
         saved = False
         for attempt in range(2):
             try:
-                res = requests.post(url, headers=headers, json={"prompt": scene_prompt, "steps": 4}, timeout=60)
+                res = requests.post(url, headers=headers, json={"prompt": scene_prompt, "steps": 4}, timeout=45)
                 if res.status_code == 200:
-                    img_bytes = res.content if "image/" in res.headers.get("content-type", "") else base64.b64decode(res.json()["result"]["image"])
+                    img_bytes = (
+                        res.content
+                        if "image/" in res.headers.get("content-type", "")
+                        else base64.b64decode(res.json()["result"]["image"])
+                    )
                     with open(filename, "wb") as f:
                         f.write(img_bytes)
                     img_paths.append(filename)
@@ -201,11 +220,14 @@ def make_cartoon_images(scene_prompts):
         raise RuntimeError("No cartoon images generated from Cloudflare.")
     return img_paths
 
+
 async def make_voice(text, filename="katha_voice.mp3"):
-    # 1. Try Edge-TTS (Madhur & Swara with retries)
     for voice_name, rate in [("hi-IN-MadhurNeural", "+8%"), ("hi-IN-SwaraNeural", "+8%"), ("hi-IN-MadhurNeural", "+0%")]:
         try:
-            await edge_tts.Communicate(text, voice_name, rate=rate).save(filename)
+            await asyncio.wait_for(
+                edge_tts.Communicate(text, voice_name, rate=rate).save(filename),
+                timeout=25,
+            )
             if os.path.exists(filename) and os.path.getsize(filename) > 1000:
                 print(f"Voice generated via Edge-TTS ({voice_name})!")
                 return
@@ -213,7 +235,6 @@ async def make_voice(text, filename="katha_voice.mp3"):
             print(f"Edge-TTS ({voice_name}) failed: {e}")
             await asyncio.sleep(2)
 
-    # 2. Automatic Fallback to ElevenLabs
     eleven_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if eleven_key:
         try:
@@ -221,7 +242,11 @@ async def make_voice(text, filename="katha_voice.mp3"):
             res = requests.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=mp3_44100_128",
                 headers={"xi-api-key": eleven_key, "Content-Type": "application/json"},
-                json={"text": text, "model_id": "eleven_flash_v2_5", "voice_settings": {"stability": 0.50, "similarity_boost": 0.75, "speed": 1.05}},
+                json={
+                    "text": text,
+                    "model_id": "eleven_flash_v2_5",
+                    "voice_settings": {"stability": 0.50, "similarity_boost": 0.75, "speed": 1.05},
+                },
                 timeout=30,
             )
             if res.status_code == 200:
@@ -233,10 +258,10 @@ async def make_voice(text, filename="katha_voice.mp3"):
         except Exception as e:
             print("ElevenLabs fallback exception:", e)
 
-    # 3. Last-resort gTTS Hindi fallback
     from gtts import gTTS
     gTTS(text=text, lang="hi").save(filename)
     print("Voice generated via gTTS fallback!")
+
 
 def make_sparkle_transform(seed=42):
     rng = random.Random(seed)
@@ -259,9 +284,40 @@ def make_sparkle_transform(seed=42):
             patch += glow_mask * spark_rgb * twinkle
             frame[cy - r:cy + r + 1, cx - r:cx + r + 1] = np.clip(patch, 0, 255).astype(np.uint8)
         return frame
+
     return apply_sparks
 
+
+def make_scene_clip(img_path, seg_d, mode, sparkle_fn):
+    pil_img = Image.open(img_path).convert("RGB").resize((1240, 1240), RESAMPLE_BILINEAR)
+
+    def animate_frame(get_frame, t):
+        progress = min(1.0, max(0.0, t / max(seg_d, 0.1)))
+        if mode == 0:
+            crop_sz = int(1240 - 160 * progress)
+            x1 = (1240 - crop_sz) // 2
+            y1 = x1
+        elif mode == 1:
+            crop_sz = 1080
+            x1 = int(160 * progress)
+            y1 = 80
+        elif mode == 2:
+            crop_sz = int(1080 + 160 * progress)
+            x1 = (1240 - crop_sz) // 2
+            y1 = x1
+        else:
+            crop_sz = 1080
+            x1 = int(160 * (1.0 - progress))
+            y1 = 80
+        cropped = pil_img.crop((x1, y1, x1 + crop_sz, y1 + crop_sz)).resize((1080, 1080), RESAMPLE_BILINEAR)
+        return np.array(cropped)
+
+    base = ColorClip(size=(1080, 1080), color=(0, 0, 0)).with_duration(seg_d)
+    return base.transform(animate_frame).transform(sparkle_fn)
+
+
 def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.mp4"):
+    print("Building video...")
     font_path = get_font()
     voice = AudioFileClip("katha_voice.mp3").with_volume_scaled(1.25)
     duration = voice.duration
@@ -281,7 +337,11 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
     if music_files:
         bgm_raw = AudioFileClip(random.choice(music_files))
         opened_audio.append(bgm_raw)
-        bgm = concatenate_audioclips([bgm_raw] * (int(duration // bgm_raw.duration) + 1)) if bgm_raw.duration < duration else bgm_raw
+        bgm = (
+            concatenate_audioclips([bgm_raw] * (int(duration // bgm_raw.duration) + 1))
+            if bgm_raw.duration < duration
+            else bgm_raw
+        )
         audio_layers.append(bgm.subclipped(0, min(duration, bgm.duration)).with_volume_scaled(0.14))
 
     video_layers = []
@@ -297,7 +357,11 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
             if raw_bg.w < 1080:
                 raw_bg = raw_bg.resized(width=1080)
             raw_bg = raw_bg.cropped(x_center=raw_bg.w / 2, y_center=raw_bg.h / 2, width=1080, height=1920)
-            bg_motion = concatenate_videoclips([raw_bg] * (int(duration // max(raw_bg.duration, 0.5)) + 1)).subclipped(0, duration) if raw_bg.duration < duration else raw_bg.subclipped(0, duration)
+            bg_motion = (
+                concatenate_videoclips([raw_bg] * (int(duration // max(raw_bg.duration, 0.5)) + 1)).subclipped(0, duration)
+                if raw_bg.duration < duration
+                else raw_bg.subclipped(0, duration)
+            )
             video_layers.append(bg_motion)
             bg_loaded = True
         except Exception as e:
@@ -307,7 +371,11 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
         for i, img_path in enumerate(img_paths):
             seg_d = scene_dur + (fade_t if i < n_scenes - 1 else 0.0)
             bg_full = ImageClip(img_path).resized(height=1920)
-            bg_full = bg_full.cropped(x_center=bg_full.w / 2, y_center=bg_full.h / 2, width=1080, height=1920).with_duration(seg_d).with_start(i * scene_dur)
+            bg_full = (
+                bg_full.cropped(x_center=bg_full.w / 2, y_center=bg_full.h / 2, width=1080, height=1920)
+                .with_duration(seg_d)
+                .with_start(i * scene_dur)
+            )
             if i > 0:
                 bg_full = bg_full.with_effects([vfx.CrossFadeIn(fade_t)])
             video_layers.append(bg_full)
@@ -318,30 +386,49 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
 
     for i, img_path in enumerate(img_paths):
         seg_d = scene_dur + (fade_t if i < n_scenes - 1 else 0.0)
-        base_img = ImageClip(img_path).with_duration(seg_d).resized(width=1240)
-        m = i % 4
-        if m == 0:
-            moving = base_img.resized(lambda t, d=seg_d: 0.88 + 0.12 * (t / max(d, 0.1))).with_position("center")
-        elif m == 1:
-            moving = base_img.with_position(lambda t, d=seg_d: (int(-160 * (1.0 - t / max(d, 0.1))), -80))
-        elif m == 2:
-            moving = base_img.resized(lambda t, d=seg_d: 1.0 - 0.12 * (t / max(d, 0.1))).with_position("center")
-        else:
-            moving = base_img.with_position(lambda t, d=seg_d: (int(-160 * (t / max(d, 0.1))), -80))
-        framed = CompositeVideoClip([moving], size=(1080, 1080)).with_duration(seg_d).transform(sparkle_fn).with_start(i * scene_dur).with_position(("center", 360))
+        framed = make_scene_clip(img_path, seg_d, i % 4, sparkle_fn).with_start(i * scene_dur).with_position(("center", 360))
         if i > 0:
             framed = framed.with_effects([vfx.CrossFadeIn(fade_t)])
         video_layers.append(framed)
 
     video_layers.append(ColorClip(size=(960, 128), color=(180, 83, 9)).with_opacity(0.92).with_duration(duration).with_position(("center", 130)))
-    video_layers.append(TextClip(font=font_path, text=clean_ascii_caps(data["screen_text"]), font_size=54, color="white", stroke_color="black", stroke_width=4, method="caption", size=(900, None), margin=(0, 10)).with_duration(duration).with_position(("center", 150)))
+    video_layers.append(
+        TextClip(
+            font=font_path,
+            text=clean_ascii_caps(data["screen_text"]),
+            font_size=54,
+            color="white",
+            stroke_color="black",
+            stroke_width=4,
+            method="caption",
+            size=(900, None),
+            margin=(0, 10),
+        )
+        .with_duration(duration)
+        .with_position(("center", 150))
+    )
 
     seg_list = data["segments"]
     total_chars = max(1, sum(len(s["voice"]) for s in seg_list))
     cur_t = 0.0
     for i, item in enumerate(seg_list):
         seg_dur = (len(item["voice"]) / total_chars) * duration
-        video_layers.append(TextClip(font=font_path, text=clean_ascii_caps(item["caption"]), font_size=68, color="yellow" if i % 2 == 0 else "white", stroke_color="black", stroke_width=6, method="caption", size=(920, None), margin=(0, 14)).with_start(cur_t).with_duration(seg_dur).with_position(("center", 1500)))
+        video_layers.append(
+            TextClip(
+                font=font_path,
+                text=clean_ascii_caps(item["caption"]),
+                font_size=68,
+                color="yellow" if i % 2 == 0 else "white",
+                stroke_color="black",
+                stroke_width=6,
+                method="caption",
+                size=(920, None),
+                margin=(0, 14),
+            )
+            .with_start(cur_t)
+            .with_duration(seg_dur)
+            .with_position(("center", 1500))
+        )
         cur_t += seg_dur
 
     final_audio = CompositeAudioClip(audio_layers).with_duration(duration)
@@ -353,7 +440,9 @@ def build_video(data, img_paths, bg_video_path=None, output_file="katha_output.m
         v.close()
     final.close()
 
+
 def upload_video(video_file, data):
+    print("Uploading to YouTube...")
     creds = Credentials(
         token=None,
         refresh_token=os.environ["YT_REFRESH_TOKEN_KATHA"].strip(),
@@ -370,22 +459,4 @@ def upload_video(video_file, data):
             "snippet": {
                 "title": data["title"][:95],
                 "description": data["description"],
-                "tags": data.get("tags", ["katha", "bhakti", "shorts"]),
-                "categoryId": "24",
-            },
-            "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False},
-        },
-        media_body=MediaFileUpload(video_file, chunksize=-1, resumable=True),
-    )
-    response = request.execute()
-    print("SUCCESS! Katha Video Uploaded. ID:", response["id"])
-
-if __name__ == "__main__":
-    data = generate_katha()
-    print("Generated Title:", data["title"])
-    img_paths = make_cartoon_images(data["scene_prompts"])
-    bg_video = fetch_pixabay_bg_video()
-    full_voice = " ".join(s["voice"] for s in data["segments"])
-    asyncio.run(make_voice(full_voice))
-    build_video(data, img_paths, bg_video_path=bg_video)
-    upload_video("katha_output.mp4", data)
+               
