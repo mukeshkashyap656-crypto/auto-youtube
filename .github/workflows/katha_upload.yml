@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '23 1 * * *' # Subah 6:53 AM IST (odd minute, fast start ~7:00 AM upload)
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-and-upload-katha:
     runs-on: ubuntu-latest
@@ -24,7 +27,9 @@ jobs:
           sudo apt-get install -y ffmpeg fonts-dejavu-core
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt && pip install --upgrade edge-tts gTTS
+        run: |
+          pip install -r requirements.txt
+          pip install --upgrade google-genai edge-tts gTTS
 
       - name: Generate and Upload Katha Short
         env:
@@ -37,3 +42,4 @@ jobs:
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         run: python -u katha.py
+        
