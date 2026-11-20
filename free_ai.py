@@ -19,14 +19,15 @@ def fallback_json(prompt, ok=lambda d: True):
     for m in MODELS:
         try:
             r = requests.post("https://models.github.ai/inference/chat/completions", timeout=180,
-                              headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
+                              headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json", "Accept": "application/vnd.github+json",
+                                       "X-GitHub-Api-Version": "2022-11-28"}, allow_redirects=False,
                               json={"model": m, "temperature": 0.9, "response_format": {"type": "json_object"},
                                     "messages": [{"role": "user", "content": prompt}]})
             if r.status_code != 200:
                 raise RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
             body = r.json() if r.text.strip().startswith("{") else {}
             if not body.get("choices"):
-                raise RuntimeError(f"jawab samajh nahi aaya: {r.text[:240]!r}")
+                raise RuntimeError(f"jawab samajh nahi aaya: HTTP {r.status_code} {r.headers.get('location', '')} {r.text[:200]!r}")
             txt = (body["choices"][0]["message"].get("content") or "").strip()
             mt = re.search(r"\{.*\}", txt, re.DOTALL)
             data = json.loads(mt.group(0) if mt else txt)
