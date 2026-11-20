@@ -79,7 +79,8 @@ Rules:
 
 
 def ask_gemini(prompt):
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip())
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"].strip(),
+                          http_options=types.HttpOptions(timeout=120000))  # 2 min per try
     last_err = None
     for attempt in range(8):
         model = MODELS[attempt % len(MODELS)]
