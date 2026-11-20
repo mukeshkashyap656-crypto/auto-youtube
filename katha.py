@@ -121,7 +121,9 @@ Rules:
             wait_sec = min(60, 10 * (attempt + 1))
             print(f"Attempt {attempt + 1} ({m}) failed: {e}. Retrying in {wait_sec}s...")
             time.sleep(wait_sec)
-    raise last_err or RuntimeError("Gemini did not return a usable script")
+    print("Gemini nahi chala, GitHub Models sahara try kar rahe hain:", last_err)
+    from free_ai import fallback_json
+    return fallback_json(prompt, lambda d: bool(d.get("segments") and d.get("scene_prompts")))
 
 def fetch_pixabay_bg_video(filename="katha_bg_motion.mp4"):
     local = [f for ext in ("*.mp4", "*.mov", "*.mkv") for f in glob.glob(os.path.join("katha_clips", ext))]

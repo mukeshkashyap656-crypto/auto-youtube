@@ -116,7 +116,9 @@ Rules:
             wait_sec = min(60, 10 * (attempt + 1))
             print(f"Attempt {attempt + 1} ({model_name}) failed: {e}. Retrying in {wait_sec}s...")
             time.sleep(wait_sec)
-    raise last_err or RuntimeError("Gemini did not return a usable script")
+    print("Gemini nahi chala, GitHub Models sahara try kar rahe hain:", last_err)
+    from free_ai import fallback_json
+    return fallback_json(prompt, lambda d: bool(d.get("segments")))
 
 
 async def make_voice(text, filename="car_voice.mp3"):

@@ -104,7 +104,11 @@ def ask_gemini(prompt):
             wait = min(60, 10 * (attempt + 1))
             print(f"Attempt {attempt + 1} ({model}) failed: {e}. Retrying in {wait}s...")
             time.sleep(wait)
-    raise last_err or RuntimeError("Gemini se jawab nahi mila")
+    print("Gemini nahi chala, GitHub Models sahara:", last_err)
+    from free_ai import fallback_json
+    data = fallback_json(prompt, lambda d: d.get("action") in ("fix", "rerun", "none"))
+    data.setdefault("files", []); data.setdefault("summary", "")
+    return data
 
 
 def check_changes(changes, old_files):

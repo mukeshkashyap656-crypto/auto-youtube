@@ -18,9 +18,28 @@ jobs:
         with:
           python-version: '3.11'
       - name: Syntax check
-        run: python -m py_compile main.py car_game.py katha.py ai_helper.py
+        run: python -m py_compile main.py car_game.py katha.py ai_helper.py free_ai.py
       - name: Truncation check
         run: |
           for f in main.py car_game.py katha.py; do
             grep -q '__name__ == "__main__"' "$f" || { echo "::error file=$f::$f adhoori lag rahi hai (end ka hissa gayab)"; exit 1; }
           done
+
+  test-free-ai:
+    # Haath se chalao (Run workflow): GitHub Models sahara sach mein jawab deta hai ya nahi
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      models: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: pip install -q requests
+      - name: Ask GitHub Models
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python free_ai.py
