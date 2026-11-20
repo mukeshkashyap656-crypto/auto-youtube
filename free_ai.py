@@ -22,6 +22,8 @@ def fallback_json(prompt, ok=lambda d: True):
                               headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"},
                               json={"model": m, "temperature": 0.9, "response_format": {"type": "json_object"},
                                     "messages": [{"role": "user", "content": prompt}]})
+            if r.status_code != 200:
+                raise RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
             txt = r.json()["choices"][0]["message"]["content"].strip()
             mt = re.search(r"\{.*\}", txt, re.DOTALL)
             data = json.loads(mt.group(0) if mt else txt)
