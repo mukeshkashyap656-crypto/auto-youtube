@@ -98,7 +98,7 @@ Rules:
 
     models_to_try = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-2.5-flash"]
     last_err = None
-    for attempt in range(4):
+    for attempt in range(8):
         model_name = models_to_try[attempt % len(models_to_try)]
         try:
             response = client.models.generate_content(
@@ -106,16 +106,17 @@ Rules:
                 contents=prompt,
                 config=types.GenerateContentConfig(response_mime_type="application/json", temperature=1.0, top_p=0.95),
             )
-            text = re.sub(r"^```json\s*|\s*```$", "", response.text.strip(), flags=re.MULTILINE)
+            text = re.sub(r"^```json\s*|\s*```$", "", (response.text or "").strip(), flags=re.MULTILINE)
             data = json.loads(text)
             if data.get("segments"):
                 print("Script generated using:", model_name)
                 return data
         except Exception as e:
             last_err = e
-            print(f"Attempt {attempt + 1} ({model_name}) info: {e}")
-            time.sleep(5)
-    raise last_err
+            wait_sec = min(60, 10 * (attempt + 1))
+            print(f"Attempt {attempt + 1} ({model_name}) failed: {e}. Retrying in {wait_sec}s...")
+            time.sleep(wait_sec)
+    raise last_err or RuntimeError("Gemini did not return a usable script")
 
 
 async def make_voice(text, filename="car_voice.mp3"):

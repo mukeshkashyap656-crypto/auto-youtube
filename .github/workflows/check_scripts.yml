@@ -1,0 +1,26 @@
+name: Check Scripts
+
+# Har baar koi .py file badalne par jaanch: file kati/tooti to nahi.
+# Galti hone par GitHub turant email bhejega, subah ke run se pehle.
+on:
+  push:
+    paths:
+      - '**.py'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Syntax check
+        run: python -m py_compile main.py car_game.py katha.py
+      - name: Truncation check
+        run: |
+          for f in main.py car_game.py katha.py; do
+            grep -q '__name__ == "__main__"' "$f" || { echo "::error file=$f::$f adhoori lag rahi hai (end ka hissa gayab)"; exit 1; }
+          done
