@@ -90,6 +90,7 @@ Rules:
 - Do NOT do fake live play-by-play commentary. Deliver mind-blowing facts, Crore prices, comparisons, and gaming secrets!
 - Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
 - Keep total voiceover 36-44 words in energetic conversational Hindi (Devanagari script).
+- Use today's simple spoken Hindi (the way people talk now), short natural sentences that flow smoothly, no heavy bookish words.
 - Last segment MUST trigger comments ("Aapki dream car kaunsi hai comment karo!").
 - "title" MUST use searchable Hinglish keywords + max 3 hashtags (#supercars #cargaming #shorts).
 - "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.

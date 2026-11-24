@@ -100,6 +100,8 @@ Rules:
 - Last segment MUST ask viewers to comment (e.g., "Har Har Mahadev", "Jai Shri Ram", matching today's deity).
 - "screen_text" and every "caption" MUST be ONLY English/Hinglish ASCII letters (A-Z, 0-9, ?, !), NO Hindi script, NO emojis.
 - Keep character appearance IDENTICAL across all 6 "scene_prompts" (repeat exact clothing, skin tone, crown/ornaments).
+- Human body rule (real-person feel, NOT a stiff puppet): every scene_prompt must describe a natural pose and gesture matching the line (e.g. "right hand raised in blessing with five separate fingers", "both hands folded in prayer", "leaning forward, pointing at the distant horizon"), a clear emotion on the face (worry, joy, anger, awe) and a different body language for each character (elder: slow and calm, young hero: upright and firm, demon: heavy and wide). Always "correct human hands with five fingers, natural arms, proper feet", never hands hidden as blobs, never all characters standing in the same pose.
+- Narration must be today's simple spoken Hindi (like people talk now), short natural sentences that flow, no heavy bookish words.
 - Every scene_prompt MUST include: "cute 2D chibi cartoon illustration, Indian mythological folk art style, warm golden glowing colors, clean dark outlines, expressive cute faces, no text, no watermark".
 - Return ONLY valid JSON:
 {{"title":"Catchy title under 58 chars with #shorts #katha #bhakti","description":"2 lines devotional description with #katha #hindikahani #bhakti #shorts","tags":["katha","bhakti","hindikahani","mythology","shorts"],"screen_text":"3 TO 5 WORDS CAPS HOOK","segments":[{{"voice":"Hindi sentence 1 (6-8 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi sentence 2 (6-8 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi sentence 3 (6-8 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi sentence 4 (6-8 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi sentence 5 (6-8 words)","caption":"2-3 WORDS CAPS"}},{{"voice":"Hindi sentence 6 (5-7 words)","caption":"COMMENT DEITY NAME"}}],"scene_prompts":["Scene 1...","Scene 2...","Scene 3...","Scene 4...","Scene 5...","Scene 6..."]}}"""
@@ -218,7 +220,7 @@ def make_sparkle_transform(seed=42):
 def make_scene_clip(img_path, seg_d, mode, sparkle_fn):
     pil = Image.open(img_path).convert("RGB").resize((1240, 1240), RESAMPLE_BILINEAR)
     def anim(gf, t):
-        p = min(1.0, max(0.0, t / max(seg_d, 0.1)))
+        p = min(1.0, max(0.0, t / max(seg_d, 0.1))); p = p * p * (3 - 2 * p)      # slow in / slow out (animators' ease), camera never starts or stops with a jerk
         if mode == 0: sz, x1, y1 = int(1240 - 160 * p), (1240 - int(1240 - 160 * p)) // 2, (1240 - int(1240 - 160 * p)) // 2
         elif mode == 1: sz, x1, y1 = 1080, int(160 * p), 80
         elif mode == 2: sz, x1, y1 = int(1080 + 160 * p), (1240 - int(1080 + 160 * p)) // 2, (1240 - int(1080 + 160 * p)) // 2
