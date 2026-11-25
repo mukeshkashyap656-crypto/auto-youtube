@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Syntax check
-        run: python -m py_compile main.py car_game.py katha.py ai_helper.py free_ai.py
+        run: python -m py_compile main.py car_game.py katha.py ai_helper.py free_ai.py viral_learn.py
       - name: Truncation check
         run: |
           for f in main.py car_game.py katha.py; do

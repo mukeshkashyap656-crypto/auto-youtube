@@ -82,11 +82,17 @@ def generate_script():
     angle = random.choice(angles)
     print(f"Topic: {c1} vs {c2} | {angle}")
     past = load_history()
+    try:
+        from viral_learn import prompt_block
+        trend_block = prompt_block("car")
+    except Exception as e:
+        print("viral seekh nahi chali, purana topic chalega:", str(e)[:120])
+        trend_block = ""
 
     prompt = f"""Today is {time.strftime("%d %B %Y %H:%M")} (Run #{random.randint(1000,9999)}).
 You are a top Indian Supercar & Car Gaming YouTube Shorts creator. Create a super searchable, high-CTR 18-second Hindi Short on: "{c1}" (or "{c1} vs {c2}") with angle: "{angle}".
 FORBIDDEN (Already uploaded, NEVER repeat or write similar titles): {past}
-Rules:
+{trend_block}Rules:
 - Do NOT do fake live play-by-play commentary. Deliver mind-blowing facts, Crore prices, comparisons, and gaming secrets!
 - Start immediately with a shocking 2-second hook (NO "Hello doston", NO intro).
 - Keep total voiceover 36-44 words in energetic conversational Hindi (Devanagari script).

@@ -126,6 +126,12 @@ def generate_script():
     chosen_topic = f"{random.choice(ff_topics)} — {random.choice(ff_angles)}"
     print("Topic:", chosen_topic)
     past = load_history()
+    try:
+        from viral_learn import prompt_block
+        trend_block = prompt_block("ff")
+    except Exception as e:
+        print("viral seekh nahi chali, purana topic chalega:", str(e)[:120])
+        trend_block = ""
 
     avail_clips, clip_parts = extract_preview_parts("clips/freefire/*.mp4", "Gameplay Clip", limit=8)
     avail_memes, meme_parts = extract_preview_parts("memes/*.mp4", "Ending Meme", limit=6)
@@ -136,7 +142,7 @@ def generate_script():
     Today is {time.strftime("%d %B %Y %H:%M")} (Run #{random.randint(1000,9999)}).
     You are a top Indian Free Fire YouTube Shorts creator. Create a super searchable, high-CTR 18-second Hindi Short on: "{chosen_topic}".
     FORBIDDEN (Already uploaded, NEVER repeat or write similar titles): {past}
-    Available files:
+{trend_block}    Available files:
     - Gameplay clips: {avail_clips if avail_clips else ["NONE"]}
     - Ending memes: {avail_memes if avail_memes else ["NONE"]}
     - Hook SFX: {avail_sfx if avail_sfx else ["NONE"]}
