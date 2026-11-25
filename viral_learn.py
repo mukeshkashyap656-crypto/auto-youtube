@@ -137,7 +137,15 @@ def _gemini_trends(cfg):
         prompt = (f"Aaj ({datetime.date.today():%d %B %Y}) India mein '{cfg['niche']}' mein kaunse 5 topic sabse zyada trend "
                   "ya viral ho rahe hain (naya update, naya event, naya game/car launch, viral challenge)? "
                   "Har topic ek line mein, sirf asli aur abhi ki baat. Koi purani ya banayi hui cheez nahi.")
-        for model in ("gemini-2.5-flash", "gemini-3.6-flash"):
+        models = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"]
+        try:   # purane naam band ho jaate hain: abhi ki list se bhi nikalo
+            for m in client.models.list():
+                n = m.name.split("/")[-1]
+                if "flash" in n and "generateContent" in (getattr(m, "supported_actions", None) or []) and n not in models:
+                    models.append(n)
+        except Exception as e:
+            print("viral_learn: model list nahi mili:", str(e)[:100])
+        for model in models[:6]:
             try:
                 resp = client.models.generate_content(
                     model=model, contents=prompt,
