@@ -5,8 +5,10 @@ from PIL import Image
 
 SAFE = ", family friendly devotional art, fully clothed, correct human hands with five fingers, no text, no watermark"
 _OFF = set()                       # is run mein jis raaste ne saaf mana kiya, dobara nahi
-BUDGET = 8 * 60                    # sab backup milakar itne second se zyada nahi (job 30 minute ki hai)
+BUDGET = 12 * 60                   # sab backup milakar itne second se zyada nahi (job 30 minute ki hai)
 _spent = [0.0]
+POLL_GAP = 47                      # Pollinations bina chaabi: 45 second mein 1 tasveer
+_last = [0.0]
 
 
 def _save(raw, fn):
@@ -48,6 +50,8 @@ def pollinations(prompt, fn, seed=7):
     url = ("https://image.pollinations.ai/prompt/" + urllib.parse.quote((prompt[:900] + SAFE), safe="") +
            f"?width=1024&height=1024&model=flux&nologo=true&safe=true&private=true&seed={seed}")
     for att in range(3):
+        time.sleep(max(0, _last[0] + POLL_GAP - time.time()))
+        _last[0] = time.time()
         try:
             r = requests.get(url, timeout=90)
             if r.status_code == 200 and r.headers.get("content-type", "").startswith("image/"):
@@ -59,7 +63,6 @@ def pollinations(prompt, fn, seed=7):
                 break
         except Exception as e:
             print("Pollinations:", str(e)[:150])
-        time.sleep(16)                    # bina chaabi: 15 second mein ek sawaal
     _OFF.add("pollinations")
     return False
 

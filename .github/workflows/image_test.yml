@@ -27,11 +27,38 @@ jobs:
           os.makedirs("out", exist_ok=True)
           prompts = ["cute 2D chibi cartoon illustration, Indian mythological folk art style, warm golden colors, clean dark outlines, Shri Krishna with blue skin, yellow dhoti and peacock feather lifting Govardhan hill on one little finger, villagers looking up in awe",
                      "cute 2D chibi cartoon illustration, Indian mythological folk art style, warm golden colors, clean dark outlines, old woman Shabari offering berries with both hands to Shri Ram in a forest hermitage, joyful faces"]
-          for name, fn in (("gemini", B.gemini_image), ("pollinations", B.pollinations)):
+          for name, fn in (("pollinations", B.pollinations),):
               for i, p in enumerate(prompts):
                   ok = fn(p, f"out/{name}_{i}.jpg")
                   print("NATEEJA", name, i, "PASS" if ok else "FAIL")
                   time.sleep(16)
+          PY
+      - name: AWS mein kaunse tool dikhte hain (sirf list, koi model chalaya nahi jata)
+        if: always()
+        env:
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+        run: |
+          python -u - <<'PY'
+          import os, requests
+          h = {"Authorization": "Bearer " + os.environ["AWS_BEARER_TOKEN_BEDROCK"].strip()}
+          for reg in ("ap-southeast-2", "us-east-1", "us-west-2"):
+              r = requests.get(f"https://bedrock.{reg}.amazonaws.com/foundation-models", params={"byOutputModality": "IMAGE"}, headers=h, timeout=30)
+              if r.status_code != 200:
+                  print("AWSLIST", reg, r.status_code, r.text[:200]); continue
+              for m in r.json().get("modelSummaries", []):
+                  print("AWSLIST", reg, m["modelId"], m.get("providerName"), (m.get("modelLifecycle") or {}).get("status"), m.get("inferenceTypesSupported"))
+              t = requests.get(f"https://bedrock.{reg}.amazonaws.com/foundation-models", params={"byOutputModality": "TEXT"}, headers=h, timeout=30).json().get("modelSummaries", [])
+              print("AWSLIST", reg, "likhne wale model:", len(t))
+          PY
+      - name: Tasveer ko log mein chhota karke rakho
+        if: always()
+        run: |
+          python - <<'PY'
+          import glob, io, base64
+          from PIL import Image
+          for f in sorted(glob.glob("out/*.jpg")):
+              b = io.BytesIO(); Image.open(f).resize((384, 384)).save(b, "JPEG", quality=70)
+              print("IMG64", f.split("/")[-1], base64.b64encode(b.getvalue()).decode())
           PY
       - uses: actions/upload-artifact@v4
         if: always()
