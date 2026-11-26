@@ -1,0 +1,31 @@
+name: AWS test (bina upload)
+
+# Sirf jaanch: AWS se ek chhota jawab. Koi video, upload ya YouTube chaabi nahi.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # AWS ki din ki ginti (git ref) ke liye
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: pip install -q requests
+      - name: AWS se poochho
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_AI: ${{ vars.AWS_AI }}
+        run: |
+          python -u -c "
+          import os, sys, free_ai
+          d = free_ai.aws_json('Sirf ye JSON do: {\"segments\": [\"jai shri ram\"]}', lambda x: bool(x.get('segments')), os.environ['GH_TOKEN'])
+          print('NATEEJA:', 'PASS' if d else 'FAIL')
+          sys.exit(0 if d else 1)
+          "
