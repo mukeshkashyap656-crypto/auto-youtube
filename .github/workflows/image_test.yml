@@ -1,0 +1,41 @@
+name: Tasveer backup test (bina upload)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [img-test]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: pip install -q requests pillow google-genai
+      - name: Har backup raaste se tasveer
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python -u - <<'PY'
+          import image_backup as B, time, os
+          os.makedirs("out", exist_ok=True)
+          prompts = ["cute 2D chibi cartoon illustration, Indian mythological folk art style, warm golden colors, clean dark outlines, Shri Krishna with blue skin, yellow dhoti and peacock feather lifting Govardhan hill on one little finger, villagers looking up in awe",
+                     "cute 2D chibi cartoon illustration, Indian mythological folk art style, warm golden colors, clean dark outlines, old woman Shabari offering berries with both hands to Shri Ram in a forest hermitage, joyful faces"]
+          for name, fn in (("gemini", B.gemini_image), ("pollinations", B.pollinations)):
+              for i, p in enumerate(prompts):
+                  ok = fn(p, f"out/{name}_{i}.jpg")
+                  print("NATEEJA", name, i, "PASS" if ok else "FAIL")
+                  time.sleep(16)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tasveer
+          path: out/
+          if-no-files-found: ignore
