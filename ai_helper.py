@@ -186,6 +186,11 @@ def open_pr(data, title):
             "on kar dijiye, taaki agli baar PR apne aap bane.)")
 
 
+def upload_may_have_started(log):
+    """True: dobara chalane se double video ban sakti hai. Log na mile to bhi True (bina jaanche rerun nahi)."""
+    return not log.strip() or bool(re.search(r"Z (Uploading( Car video)? to YouTube|SUCCESS!)", log))
+
+
 def mode_fix():
     run_id = os.environ["RUN_ID"]
     run_name = os.environ.get("RUN_NAME", "Video workflow")
@@ -199,7 +204,11 @@ def mode_fix():
 
     extra = ""
     if data["action"] == "rerun":
-        if attempt < 2:
+        full = run(["gh", "run", "view", run_id, "--repo", REPO, "--log"], check=False)
+        if upload_may_have_started(full):
+            extra = ("\n\n⚠️ Upload shuru ho chuka tha (ya log padh nahi paaye), isliye double video se bachne ke liye "
+                     "dobara **nahi** chalaya. YouTube Studio mein dekh lijiye.")
+        elif attempt < 2:
             run(["gh", "run", "rerun", run_id, "--repo", REPO, "--failed"], check=False)
             extra = "\n\n🔁 Ye thodi der ki gadbad lagi, isliye maine run **ek baar dobara chala diya** hai."
         else:
