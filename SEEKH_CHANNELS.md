@@ -6,6 +6,6 @@ Katha Chitra (Ramayan, alag repo katha-chitra-videos) mein insaani body language
 
 ## Nayi baat (27 Nov 2026): AWS backup (Free Fire, Car, Katha)
 - free_ai.py mein: Gemini fail ho to pehle AWS (Opus 4.6), phir GitHub Models. Har channel ki apni ginti, 30 call roz. AWS 20 May 2027 ke baad band.
-- Chalne ke liye is repo mein secret AWS_BEARER_TOKEN_BEDROCK aur variable AWS_AI = on dono chahiye. Code sirf nakli jawab se jaancha gaya hai; asli test abhi BAAKI hai.
+- Chalne ke liye is repo mein secret AWS_BEARER_TOKEN_BEDROCK aur variable AWS_AI = on dono chahiye. Asli test PASS (27 Nov raat 1:27, "AWS test (bina upload)" workflow, Opus 4.6 ne jawab diya). Asli video run mein AWS abhi nahi dekha gaya.
 - AWS Free plan hi rahe; Upgrade kabhi nahi. Key code, log ya chat mein kabhi nahi.
 - 26 Nov ki failure: Car mein Gemini busy tha aur GitHub Models backup bhi nahi chala. Katha mein Cloudflare ki roz ki free seema (tasveer) khatam thi; AWS wala text backup is tasveer wali dikkat ko theek NAHI karta.
