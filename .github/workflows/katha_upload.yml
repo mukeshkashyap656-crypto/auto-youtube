@@ -6,7 +6,7 @@ on:
     - cron: '23 1 * * *' # Subah 6:53 AM IST (odd minute, fast start ~7:00 AM upload)
 
 permissions:
-  contents: read
+  contents: write   # AWS ki din ki ginti (git ref) ke liye
   models: read
 
 env:
@@ -42,6 +42,8 @@ jobs:
           YT_REFRESH_TOKEN_KATHA: ${{ secrets.YT_REFRESH_TOKEN_KATHA }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_AI: ${{ vars.AWS_AI }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
